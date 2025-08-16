@@ -1,0 +1,19 @@
+{
+  "mappings": [
+    {
+      "logicalName": "kitchen",
+      "windowsPrinterName": "EPSON TM-T88V Kitchen",
+      "isDefault": false
+    },
+    {
+      "logicalName": "bar",
+      "windowsPrinterName": "Star TSP100 Bar",
+      "isDefault": false
+    },
+    {
+      "logicalName": "receipt",
+      "windowsPrinterName": "EPSON TM-T88V Receipt",
+      "isDefault": true
+    }
+  ]
+}
