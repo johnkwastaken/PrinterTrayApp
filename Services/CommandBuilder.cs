@@ -8,39 +8,53 @@ using PrinterTrayApp.Models;
 namespace PrinterTrayApp.Services;
 
 /// <summary>
-/// Command Builder - Converts rendered XML to ESC/POS printer commands
+/// ESC/POS Command Builder - Converts rendered XML to printer control codes
 /// 
-/// FILE PURPOSE:
-/// - Takes rendered XML document (with all tokens replaced with actual values)
-/// - Converts XML elements to ESC/POS command strings for thermal printers
-/// - Handles text formatting, alignment, sizes, and special commands
-/// - Builds final command string to send to printer
+/// PRIMARY PURPOSE:
+/// Translates human-readable XML into ESC/POS (Epson Standard Code) commands
+/// that thermal printers understand. This is the final step before printing.
 /// 
-/// ESC/POS PROTOCOL:
-/// - Industry standard for thermal receipt printers (Epson, Star, etc.)
-/// - Uses escape sequences to control printer: ESC @ (initialize), ESC E (bold), etc.
-/// - Commands are sent as raw strings to printer through Windows spooler
+/// INPUT: Rendered XML document with actual values (no more {{tokens}})
+/// OUTPUT: String of ESC/POS commands ready for RAW printing
+/// 
+/// ESC/POS PROTOCOL OVERVIEW:
+/// - Industry standard since 1990s for thermal receipt printers
+/// - Uses escape sequences: ESC (0x1B) and GS (0x1D) followed by command bytes
+/// - Common commands:
+///   * ESC @ (0x1B 0x40): Initialize printer
+///   * ESC ! n (0x1B 0x21 n): Select print modes (size, emphasis)
+///   * ESC a n (0x1B 0x61 n): Text alignment
+///   * GS V (0x1D 0x56): Cut paper
+/// - Commands are sent as raw byte strings through Windows spooler
 /// 
 /// XML ELEMENTS PROCESSED:
-/// - <text>: Regular text with optional formatting (bold, size, alignment)
-/// - <separator>: Line of characters (usually dashes or equals)
-/// - <blank>: Empty lines for spacing
-/// - <command>: Special commands (cut paper, open drawer, beep)
-/// - <barcode>/<qrcode>: Barcode and QR code printing
-/// - <table>: Columnar data for receipts
+/// - <text>: Regular text with formatting attributes
+///   * size: normal, wide, high, wide-high
+///   * align: left, center, right
+///   * font-style: normal, b (bold), u (underline)
+///   * font-family: a, b, c (different font sizes)
+/// - <separator>: Horizontal line (e.g., "--------")
+/// - <blank lines="n">: Insert n empty lines
+/// - <command cmd="cut|opencashdrawer|beep">: Hardware commands
+/// - <barcode>/<qrcode>: Machine-readable codes
+/// - <table>: Multi-column layout for receipts
 /// 
 /// OUTPUT: String of ESC/POS commands ready to send to printer via RAW printing
 /// </summary>
 public class CommandBuilder
 {
-    private readonly StringBuilder _commands;
-    private readonly PrinterPaperWidth _paperWidth;
+    private readonly StringBuilder _commands;  // Accumulates all ESC/POS commands
+    private readonly PrinterPaperWidth _paperWidth;  // 58mm or 80mm paper roll
     
+    /// <summary>
+    /// Creates a new command builder for generating ESC/POS commands
+    /// </summary>
+    /// <param name="paperWidth">Width of thermal paper (affects text wrapping)</param>
     public CommandBuilder(PrinterPaperWidth paperWidth = PrinterPaperWidth.Paper_80)
     {
         _commands = new StringBuilder();
         _paperWidth = paperWidth;
-        Reset();
+        Reset();  // Send printer initialization command
     }
     
     public CommandBuilder Reset()
@@ -190,6 +204,10 @@ public class CommandBuilder
         }
     }
     
+    /// <summary>
+    /// Processes a <text> element and generates appropriate ESC/POS commands
+    /// This is the most complex processor as it handles all text formatting
+    /// </summary>
     private void ProcessTextNode(XmlNode node)
     {
         var text = node.InnerText ?? "";
@@ -197,7 +215,18 @@ public class CommandBuilder
         if (string.IsNullOrEmpty(text)) 
         {
             DebugLogger.Log($"[CommandBuilder] Skipping empty text node");
-            return;
+            return;  // Don't process empty text nodes
+        }
+        
+        // Log all attributes for debugging styling issues
+        // This helps diagnose why text might not appear as expected
+        DebugLogger.Log($"[STYLE-DEBUG] Text node attributes:");
+        if (node.Attributes != null)
+        {
+            foreach (XmlAttribute attr in node.Attributes)
+            {
+                DebugLogger.Log($"[STYLE-DEBUG]   {attr.Name}='{attr.Value}'");
+            }
         }
         
         // Get attributes
@@ -208,6 +237,9 @@ public class CommandBuilder
         // Support both "font-style" and "font" attributes
         var fontStyle = GetFontStyle(node.Attributes?["font-style"]?.Value ?? node.Attributes?["font"]?.Value);
         
+        DebugLogger.Log($"[STYLE-DEBUG] Parsed values:");
+        DebugLogger.Log($"[STYLE-DEBUG]   align={align}, size={size}, fontFamily={fontFamily}, fontStyle={fontStyle}");
+        
         // Handle scale attribute (overrides size and font-family)
         if (!string.IsNullOrEmpty(scaleAttr) && int.TryParse(scaleAttr, out var scale))
         {
@@ -216,44 +248,46 @@ public class CommandBuilder
             fontFamily = scaledFontFamily;
         }
         
-        // Apply font color if specified
+        // Apply font color
         var fontColor = GetFontColor(node.Attributes?["font-color"]?.Value);
-        if (fontColor != PrinterFontColor.Color_1)
-        {
-            _commands.Append(POS80Commands.fontColor[fontColor]);
-        }
         
-        // Apply formatting commands
-        if (size != PrinterScale.Normal)
-            _commands.Append(POS80Commands.size[size]);
-            
-        if (fontFamily != PrinterFontFamily.A)
-            _commands.Append(POS80Commands.fontFamily[fontFamily]);
-            
-        if (align != PrinterAlign.Left)
-            _commands.Append(POS80Commands.align[align]);
-            
-        if (fontStyle != PrinterFontStyle.Normal)
-            _commands.Append(POS80Commands.fontStyle[fontStyle]);
+        // CRITICAL: Send ALL formatting commands in exact order
+        // The POS always sends all commands even for defaults
+        // This ensures printer state is consistent and predictable
+        // Order matters: Color -> Size -> Font -> Align -> Style
+        
+        // 1. Font Color
+        var colorCmd = POS80Commands.fontColor[fontColor];
+        DebugLogger.Log($"[STYLE-DEBUG] Adding color command for {fontColor}: {EscapeString(colorCmd)}");
+        _commands.Append(colorCmd);
+        
+        // 2. Size
+        var sizeCmd = POS80Commands.size[size];
+        DebugLogger.Log($"[STYLE-DEBUG] Adding size command for {size}: {EscapeString(sizeCmd)}");
+        _commands.Append(sizeCmd);
+        
+        // 3. Font Family
+        var fontCmd = POS80Commands.fontFamily[fontFamily];
+        DebugLogger.Log($"[STYLE-DEBUG] Adding font command for {fontFamily}: {EscapeString(fontCmd)}");
+        _commands.Append(fontCmd);
+        
+        // 4. Alignment
+        var alignCmd = POS80Commands.align[align];
+        DebugLogger.Log($"[STYLE-DEBUG] Adding align command for {align}: {EscapeString(alignCmd)}");
+        _commands.Append(alignCmd);
+        
+        // 5. Font Style (bold, underline, etc)
+        var styleCmd = POS80Commands.fontStyle[fontStyle];
+        DebugLogger.Log($"[STYLE-DEBUG] Adding style command for {fontStyle}: {EscapeString(styleCmd)}");
+        _commands.Append(styleCmd);
         
         // Add text
         _commands.Append(text);
         
-        // Reset formatting
-        if (fontStyle != PrinterFontStyle.Normal)
-            _commands.Append(POS80Commands.fontStyle[PrinterFontStyle.Normal]);
-            
-        if (size != PrinterScale.Normal)
-            _commands.Append(POS80Commands.size[PrinterScale.Normal]);
-            
-        if (fontFamily != PrinterFontFamily.A)
-            _commands.Append(POS80Commands.fontFamily[PrinterFontFamily.A]);
-            
-        if (align != PrinterAlign.Left)
-            _commands.Append(POS80Commands.align[PrinterAlign.Left]);
-            
-        if (fontColor != PrinterFontColor.Color_1)
-            _commands.Append(POS80Commands.fontColor[PrinterFontColor.Color_1]);
+        // IMPORTANT: Do NOT reset formatting after text!
+        // The POS doesn't reset - each element sets its own formatting
+        // We previously had reset commands here that were canceling styles
+        // This was the main cause of styling not appearing on printouts
         
         // Add newline
         _commands.Append("\n");
@@ -468,6 +502,27 @@ public class CommandBuilder
     
     public string Build()
     {
-        return _commands.ToString();
+        var result = _commands.ToString();
+        
+        // Log the final command string for debugging
+        DebugLogger.Log($"[STYLE-DEBUG] Final ESC/POS command length: {result.Length} bytes");
+        DebugLogger.Log($"[STYLE-DEBUG] First 200 chars (escaped): {EscapeString(result.Substring(0, Math.Min(200, result.Length)))}");
+        
+        return result;
+    }
+    
+    private string EscapeString(string input)
+    {
+        var sb = new StringBuilder();
+        foreach (char c in input)
+        {
+            if (c == '\x1B') sb.Append("<ESC>");
+            else if (c == '\x1D') sb.Append("<GS>");
+            else if (c == '\n') sb.Append("<LF>");
+            else if (c == '\r') sb.Append("<CR>");
+            else if (c < 32) sb.Append($"<0x{(int)c:X2}>");
+            else sb.Append(c);
+        }
+        return sb.ToString();
     }
 }

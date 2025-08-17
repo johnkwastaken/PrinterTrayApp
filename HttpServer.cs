@@ -123,10 +123,14 @@ public class HttpServer
 
         _app.MapPost("/print", async (HttpContext context) =>
         {
+            // ============================================================
+            // MAIN PRINT ENDPOINT - Receives PrinterTask JSON from POS
+            // ============================================================
             try
             {
                 ConsoleWindow.WriteLine($"POST /print from {context.Connection.RemoteIpAddress}");
                 
+                // Read the JSON body from the HTTP request
                 using var reader = new StreamReader(context.Request.Body);
                 var body = await reader.ReadToEndAsync();
                 
@@ -141,6 +145,7 @@ public class HttpServer
                 ConsoleWindow.WriteLine($"Print request body length: {body.Length}");
                 
                 // Clean MongoDB types from the entire JSON before deserializing
+                // POS sends MongoDB-specific types like {"$date": 123456} that need conversion
                 string cleanedBody = body;
                 try
                 {
@@ -150,7 +155,7 @@ public class HttpServer
                 catch (Exception ex)
                 {
                     ConsoleWindow.WriteError($"Warning: Could not clean MongoDB types: {ex.Message}");
-                    // Continue with original body
+                    // Continue with original body - not fatal
                 }
                 
                 PrinterTask? printerTask;
@@ -187,10 +192,12 @@ public class HttpServer
                     return;
                 }
                 
+                // Generate unique job number for tracking (format: PRT-YYYYMMDD-######)
                 var jobNumber = GenerateJobNumber();
                 ConsoleWindow.WriteLine($"Processing print job: {jobNumber}");
                 
-                // Use first available printer - no routing logic
+                // Get available printers from Windows
+                // Currently using first available printer - routing logic can be added later
                 var availablePrinters = _printerService.GetPrinterNames();
                 if (availablePrinters.Count == 0)
                 {
@@ -204,10 +211,14 @@ public class HttpServer
                     return;
                 }
                 
+                // Select printer - currently using first available
+                // TODO: Future enhancement - use printer mapping from templateData
                 string targetPrinter = availablePrinters[0];
                 ConsoleWindow.WriteLine($"Using first available printer: {targetPrinter}");
                 ConsoleWindow.WriteLine($"Open cash drawer: {printerTask.isOpenCashDrawer}");
                 
+                // Process the print task through the full pipeline
+                // This is where the magic happens - template rendering, command generation, printing
                 var result = await ProcessPrintTask(printerTask, jobNumber, targetPrinter);
                 
                 context.Response.ContentType = "application/json";
@@ -316,6 +327,14 @@ public class HttpServer
     /// <summary>
     /// Main print task processing pipeline - receives PrinterTask from POS and sends to printer
     /// This is the core function that orchestrates the entire printing process
+    /// 
+    /// PIPELINE STAGES:
+    /// 1. Validate template exists
+    /// 2. Parse templateData (JSON string containing all print data)
+    /// 3. Render XML template (replace {{tokens}} with actual values)
+    /// 4. Convert XML to ESC/POS commands
+    /// 5. Send commands to printer with retry logic
+    /// 
     /// Flow: JSON Data -> Clean MongoDB Types -> Apply POS Rules -> Render Template -> Generate Commands -> Send to Printer
     /// </summary>
     /// <param name="task">PrinterTask containing template and ALL data in templateData field</param>
@@ -346,11 +365,19 @@ public class HttpServer
             // - dateOfPrinting, printerName, appVersion, etc.
             // The template uses {{path.to.value}} tokens to reference this data
             
-            // STEP 1: Parse templateData if it's a string (POS sends it as JSON string)
-            // The POS stringifies the templateData object before sending
+            // ============================================================
+            // STEP 1: Parse templateData (JSON string from POS)
+            // ============================================================
+            // The POS sends templateData as a JSON STRING, not an object
+            // It contains ALL the data needed for printing:
+            // - printerName/printerDeviceName: Which printer to use
+            // - sites: Store information
+            // - orders: Order details with products
+            // - staff, registers, currencies: Context data
+            // - dateOfPrinting, header, footer: Print metadata
             string processedTemplateData = task.templateData ?? "{}";
             
-            // Log the type and content we received
+            // Log the type and content we received for debugging
             DebugLogger.Log($"[POS-FIX] templateData is string: {!string.IsNullOrEmpty(processedTemplateData)}");
             DebugLogger.Log($"[POS-FIX] templateData length: {processedTemplateData.Length}");
             
@@ -366,18 +393,33 @@ public class HttpServer
                 DebugLogger.Log($"[POS-FIX] WARNING: templateData is not valid JSON: {parseEx.Message}");
             }
             
-            // STEP 2: Skip JsonCleaner - POS data structure is valid as-is
-            // The POS sends pre-flattened products with level properties
-            // Circular references are handled via the level system
+            // ============================================================
+            // STEP 2: Data Structure Validation
+            // ============================================================
+            // IMPORTANT: We do NOT use JsonCleaner on templateData anymore
+            // The POS sends pre-flattened products with level properties:
+            // - level 0: Main products
+            // - level 1: Modifiers (indented 2 spaces)
+            // - level 2+: Sub-modifiers (indented 2 spaces per level)
+            // Circular references exist but are handled via the level system
             DebugLogger.Log($"[POS-FIX] Keeping POS data structure intact - not using JsonCleaner");
             
             // processedTemplateData is already the string we need
             DebugLogger.Log($"[POS-FIX] Template data ready for processing");
             
-            // STEP 3: Render the XML template with the processed data
-            // Takes the XML template and replaces all {{tokens}} with actual values
-            // Example: {{sites.name}} -> "Palmerston North"
-            //          {{orders.docNumber}} -> "DE-87"
+            // ============================================================
+            // STEP 3: Render XML Template with Data
+            // ============================================================
+            // The template contains XML with {{tokens}} placeholders
+            // TemplateHelpers.RenderTemplate does the heavy lifting:
+            // - Parses the XML structure
+            // - Replaces {{tokens}} with values from templateData
+            // - Processes special sections like <docket-section>
+            // - Handles product hierarchies with proper formatting
+            // Example transformations:
+            //   {{sites.name}} -> "Palmerston North"
+            //   {{orders.docNumber}} -> "005868"
+            //   <docket-section /> -> Full product list with categories
             DebugLogger.Log($"[HttpServer] About to render template: {task.template.name}");
             
             XmlDocument xmlDoc;
@@ -417,18 +459,27 @@ public class HttpServer
                 throw;
             }
             
-            // STEP 4: Convert rendered XML to ESC/POS printer commands
-            // ESC/POS is the standard protocol for thermal receipt printers
+            // ============================================================
+            // STEP 4: Convert XML to ESC/POS Commands
+            // ============================================================
+            // ESC/POS (Epson Standard Code for Point of Sale) is the
+            // industry standard protocol for thermal receipt printers
+            // CommandBuilder converts each XML element to printer commands:
+            // - <text> -> Text with formatting (size, alignment, style)
+            // - <separator> -> Line of characters
+            // - <blank> -> Empty lines
+            // - <command> -> Special commands (cut, drawer, beep)
             ConsoleWindow.WriteLine("Building ESC/POS commands...");
             
             var commandBuilder = new CommandBuilder(PrinterPaperWidth.Paper_80);
             
             // Add cash drawer opening command if requested
-            // This sends a pulse to the cash drawer connected to the printer
+            // Most thermal printers have a cash drawer port (DK port)
+            // This sends an electrical pulse to trigger the drawer solenoid
             if (task.isOpenCashDrawer)
             {
                 ConsoleWindow.WriteLine("Adding cash drawer command");
-                commandBuilder.OpenCashDrawer(PrinterPulse.Duration_100);
+                commandBuilder.OpenCashDrawer(PrinterPulse.Duration_100);  // 100ms pulse
             }
             
             // Process the XML document and generate ESC/POS commands
@@ -438,10 +489,13 @@ public class HttpServer
             // Get the final string of commands to send to printer
             var commands = commandBuilder.Build();
             
-            // STEP 5: Send commands to the physical printer
+            // ============================================================
+            // STEP 5: Send Commands to Physical Printer
+            // ============================================================
             ConsoleWindow.WriteLine($"Sending {commands.Length} bytes to printer...");
             
-            // Use override printer if provided (for testing), otherwise get from data
+            // Determine which printer to use
+            // Priority: 1) Override (for testing), 2) templateData, 3) Root field
             string printerName = "";
             if (!string.IsNullOrWhiteSpace(overridePrinter))
             {
@@ -471,8 +525,14 @@ public class HttpServer
                 }
             }
             
-            // Retry logic with safety for cash drawer operations
-            // Limit retries to 3 for cash drawer to prevent multiple openings
+            // ============================================================
+            // Retry Logic with Cash Drawer Safety
+            // ============================================================
+            // Implements smart retry logic:
+            // - Normal prints: Up to 5 retries
+            // - Cash drawer prints: Limited to 3 retries
+            // This prevents the cash drawer from opening multiple times
+            // if there's a communication issue
             var maxRetries = task.isOpenCashDrawer ? 3 : 5;
             var retryCount = 0;
             Exception? lastError = null;

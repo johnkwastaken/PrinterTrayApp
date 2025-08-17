@@ -1,0 +1,162 @@
+{
+  "info": {
+    "name": "PrinterTrayApp API",
+    "description": "Windows Printer Tray App REST API for thermal printer management",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "_postman_id": "12345678-1234-1234-1234-123456789012",
+    "version": {
+      "major": 1,
+      "minor": 0,
+      "patch": 0
+    }
+  },
+  "item": [
+    {
+      "name": "Health Check",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/health",
+          "host": ["{{baseUrl}}"],
+          "path": ["health"]
+        },
+        "description": "Returns server status, version, available printers, and uptime"
+      }
+    },
+    {
+      "name": "Get Printers",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/printers",
+          "host": ["{{baseUrl}}"],
+          "path": ["printers"]
+        },
+        "description": "Returns detailed information about all available printers"
+      }
+    },
+    {
+      "name": "Print Job - Basic Receipt",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"_id\": {\n    \"id\": \"test-receipt-001\",\n    \"siteId\": \"site-001\"\n  },\n  \"template\": {\n    \"body\": \"<root charset=\\\"utf-8\\\"><text align=\\\"center\\\" size=\\\"wide\\\">{{header}}</text><separator char=\\\"-\\\" /><text>Date: {{dateOfPrinting}}</text><text>Order: {{orders.docNumber}}</text><text>Total: {{orders.total}}</text><blank lines=\\\"1\\\" /><text>Thank you for your order!</text><blank lines=\\\"2\\\" /><command cmd=\\\"cut\\\" /></root>\",\n    \"name\": \"Basic Receipt\",\n    \"templateType\": \"Docket\"\n  },\n  \"templateData\": \"{\\\"printerDeviceName\\\":\\\"Microsoft Print to PDF\\\",\\\"header\\\":\\\"RECEIPT\\\",\\\"dateOfPrinting\\\":\\\"17/01/2025, 2:30 PM\\\",\\\"orders\\\":{\\\"docNumber\\\":\\\"005868\\\",\\\"total\\\":\\\"$25.50\\\"}}\",\n  \"isOpenCashDrawer\": false\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/print",
+          "host": ["{{baseUrl}}"],
+          "path": ["print"]
+        },
+        "description": "Prints a basic receipt with header, date, order number, and total"
+      }
+    },
+    {
+      "name": "Print Job - With Products",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"_id\": {\n    \"id\": \"test-products-001\",\n    \"siteId\": \"site-001\"\n  },\n  \"template\": {\n    \"body\": \"<root charset=\\\"utf-8\\\"><text align=\\\"center\\\" size=\\\"wide\\\">{{header}}</text><separator char=\\\"-\\\" /><text>Date: {{dateOfPrinting}}</text><text>Order: {{orders.docNumber}}</text><docket-section /><separator char=\\\"-\\\" /><text>Total: {{orders.total}}</text><blank lines=\\\"2\\\" /><command cmd=\\\"cut\\\" /></root>\",\n    \"name\": \"Receipt with Products\",\n    \"templateType\": \"Docket\"\n  },\n  \"templateData\": \"{\\\"printerDeviceName\\\":\\\"Microsoft Print to PDF\\\",\\\"header\\\":\\\"RECEIPT\\\",\\\"dateOfPrinting\\\":\\\"17/01/2025, 2:30 PM\\\",\\\"orders\\\":{\\\"docNumber\\\":\\\"005868\\\",\\\"total\\\":\\\"$25.50\\\",\\\"mainProducts\\\":[{\\\"categories\\\":[{\\\"category\\\":{\\\"name\\\":\\\"Food\\\"},\\\"products\\\":[{\\\"productName\\\":\\\"Burger\\\",\\\"printName\\\":\\\"Burger\\\",\\\"qty\\\":\\\"1\\\",\\\"price\\\":\\\"$15.00\\\",\\\"level\\\":0},{\\\"productName\\\":\\\"Extra Cheese\\\",\\\"printName\\\":\\\"  + Extra Cheese\\\",\\\"qty\\\":\\\"1\\\",\\\"price\\\":\\\"$2.50\\\",\\\"level\\\":1}]}]}]}}\",\n  \"isOpenCashDrawer\": false\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/print",
+          "host": ["{{baseUrl}}"],
+          "path": ["print"]
+        },
+        "description": "Prints a receipt with product list using docket-section"
+      }
+    },
+    {
+      "name": "Print Job - With Cash Drawer",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"_id\": {\n    \"id\": \"test-cash-drawer-001\",\n    \"siteId\": \"site-001\"\n  },\n  \"template\": {\n    \"body\": \"<root charset=\\\"utf-8\\\"><text align=\\\"center\\\" size=\\\"wide\\\">CASH RECEIPT</text><separator char=\\\"-\\\" /><text>Date: {{dateOfPrinting}}</text><text>Order: {{orders.docNumber}}</text><text>Total: {{orders.total}}</text><text>Payment: CASH</text><blank lines=\\\"1\\\" /><text align=\\\"center\\\">Thank you!</text><blank lines=\\\"2\\\" /><command cmd=\\\"cut\\\" /></root>\",\n    \"name\": \"Cash Receipt\",\n    \"templateType\": \"Docket\"\n  },\n  \"templateData\": \"{\\\"printerDeviceName\\\":\\\"Microsoft Print to PDF\\\",\\\"dateOfPrinting\\\":\\\"17/01/2025, 2:30 PM\\\",\\\"orders\\\":{\\\"docNumber\\\":\\\"005869\\\",\\\"total\\\":\\\"$30.00\\\"}}\",\n  \"isOpenCashDrawer\": true\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/print",
+          "host": ["{{baseUrl}}"],
+          "path": ["print"]
+        },
+        "description": "Prints a receipt and opens the cash drawer"
+      }
+    },
+    {
+      "name": "Print Job - Text Styling Test",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"_id\": {\n    \"id\": \"style-test-001\"\n  },\n  \"template\": {\n    \"body\": \"<root><text>Normal text</text><text size=\\\"wide\\\">Wide text</text><text size=\\\"high\\\">High text</text><text size=\\\"wide-high\\\">Wide-High text</text><text font-style=\\\"b\\\">Bold text</text><text font-family=\\\"a\\\" size=\\\"wide-high\\\" font-style=\\\"b\\\">Combined: Wide-High Bold Font A</text><separator char=\\\"=\\\"/><docket-section product-scale=\\\"8\\\" /></root>\",\n    \"name\": \"Style Test\"\n  },\n  \"templateData\": \"{\\\"orders\\\":{\\\"mainProducts\\\":[{\\\"categories\\\":[{\\\"category\\\":{\\\"name\\\":\\\"Test\\\"},\\\"products\\\":[{\\\"productName\\\":\\\"Test Product\\\",\\\"printName\\\":\\\"Test Product\\\",\\\"qty\\\":\\\"1\\\",\\\"price\\\":\\\"$5.00\\\",\\\"level\\\":0,\\\"fontFamily\\\":\\\"a\\\",\\\"fontSize\\\":\\\"wide-high\\\",\\\"fontStyle\\\":\\\"b\\\"}]}]}]},\\\"printerName\\\":\\\"test\\\"}\",\n  \"isOpenCashDrawer\": false\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/print",
+          "host": ["{{baseUrl}}"],
+          "path": ["print"]
+        },
+        "description": "Tests various text styling attributes"
+      }
+    },
+    {
+      "name": "Self Test",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/self-test",
+          "host": ["{{baseUrl}}"],
+          "path": ["self-test"]
+        },
+        "description": "Placeholder endpoint for future self-testing functionality"
+      }
+    },
+    {
+      "name": "API Root",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/",
+          "host": ["{{baseUrl}}"],
+          "path": [""]
+        },
+        "description": "Returns API information and available endpoints"
+      }
+    }
+  ],
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://127.0.0.1:9877",
+      "type": "string"
+    }
+  ]
+}

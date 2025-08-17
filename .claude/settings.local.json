@@ -53,6 +53,9 @@
       "Bash(true)"
     ],
     "deny": [],
-    "ask": []
+    "ask": [],
+    "additionalDirectories": [
+      "C:\\Users\\johnk\\repo\\dnero-desktop-pos\\src"
+    ]
   }
 }

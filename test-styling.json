@@ -1,0 +1,11 @@
+{
+  "_id": {
+    "id": "style-test-001"
+  },
+  "template": {
+    "body": "<root><text>Normal text</text><text size=\"wide\">Wide text</text><text size=\"high\">High text</text><text size=\"wide-high\">Wide-High text</text><text font-style=\"b\">Bold text</text><text font-family=\"a\" size=\"wide-high\" font-style=\"b\">Combined: Wide-High Bold Font A</text><separator char=\"=\"/><docket-section product-scale=\"8\" /></root>",
+    "name": "Style Test"
+  },
+  "templateData": "{\"orders\":{\"mainProducts\":[{\"categories\":[{\"category\":{\"name\":\"Test\"},\"products\":[{\"productName\":\"Test Product\",\"printName\":\"Test Product\",\"qty\":\"1\",\"price\":\"$5.00\",\"level\":0,\"fontFamily\":\"a\",\"fontSize\":\"wide-high\",\"fontStyle\":\"b\"}]}]}]},\"printerName\":\"test\"}",
+  "isOpenCashDrawer": false
+}
