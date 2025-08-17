@@ -1,226 +1,299 @@
 # 🖨️ Windows Printer Tray App – Development Guide for Claude
 
 ## Project Overview
-Building a Windows Tray application that runs an HTTP API server for ESC/POS thermal printer management. The app accepts print jobs via REST API and sends them to Windows printers.
+Windows Tray application that accepts print jobs from a POS system via REST API and sends them to thermal printers using ESC/POS commands.
 
-## 🔑 Critical Development Rules
+## 🚀 Current Status: **PRODUCTION READY**
 
-### 1. MILESTONE DOCUMENTATION
-- **CREATE** a `MILESTONE-X.md` document before starting each milestone
-- Include detailed plan, test scenarios, success criteria
-- Update the document as features are completed
-- Mark items with ✅ when done, 🚧 in progress, ⏳ pending
+### ✅ Completed Features
+- Windows tray application with HTTP server
+- Print job processing matching POS system format
+- ESC/POS command generation (string-based)
+- XML template rendering with token replacement
+- Direct Windows printer spooler integration
+- Retry logic with cash drawer safety (max 3 attempts)
+- Human-readable job numbers (PRT-YYYYMMDD-######)
+- Interactive test form for JSON input
+- Printer discovery and status monitoring
 
-### 2. PLAN FIRST, CODE SECOND
-- **ALWAYS** write a detailed PLAN before any code
-- List steps, inputs, outputs, edge cases
-- Wait for user approval before implementing
-- Break complex tasks into testable parts
+## 📁 Project Structure
+```
+PrinterTrayApp/
+├── 📄 Core Files
+│   ├── Program.cs                 # Entry point with mutex
+│   ├── TrayApplicationContext.cs  # System tray management
+│   ├── HttpServer.cs             # Kestrel HTTP server & endpoints
+│   ├── ConsoleWindow.cs          # Console output management
+│   └── Constants.cs              # Application constants
+│
+├── 📂 Models/
+│   ├── PrinterTask.cs            # POS print job model
+│   ├── PrinterInfo.cs            # Printer information
+│   ├── PortType.cs               # Port type detection
+│   └── HealthResponse.cs         # API response models
+│
+├── 📂 Services/
+│   ├── PrinterService.cs         # Printer discovery & management
+│   ├── POS80Commands.cs          # ESC/POS command definitions
+│   ├── TemplateHelpers.cs        # XML template rendering
+│   ├── CommandBuilder.cs         # ESC/POS command generation
+│   ├── PrintDirect.cs            # Windows spooler wrapper
+│   └── SimplePrintService.cs     # Basic print testing
+│
+├── 📂 Forms/
+│   ├── PrintTestForm.cs          # JSON input test interface
+│   ├── PrinterManagementForm.cs  # Printer management UI
+│   └── MemoryStatusForm.cs       # Memory diagnostics
+│
+├── 📂 Tests/                      # Test scripts and data
+│   ├── TestPrintEndpoint.ps1
+│   ├── TestPrintInteractive.ps1
+│   └── test-scenarios.json
+│
+├── 📂 Documentation/              # Project documentation
+│   ├── MILESTONE-*.md
+│   ├── POS-ARCHITECTURE-ANALYSIS.md
+│   └── TESTING-COMPLETE.md
+│
+└── 📄 Configuration
+    ├── printers.json             # Printer mappings (optional)
+    └── PrinterTrayApp.csproj     # Project configuration
+```
 
-### 3. Incremental Development
-- User wants to **test and run after EACH part**
-- Build features incrementally
-- Each part must be independently testable
-- Provide clear test instructions after each change
+## 🔌 API Endpoints
 
-### 4. Code Quality Rules
-- NO COMMENTS in code unless explicitly requested
-- Follow existing code patterns and conventions
-- Check for existing libraries before adding new ones
-- Never expose or log secrets/keys
-- Always use absolute paths, not relative
-
-### 5. Testing Requirements
-- After completing features, run lint/typecheck if available
-- Test each endpoint with PowerShell/Postman
-- Verify console logging works
-- Check tray icon functionality
-
-## 📋 Development Milestones
-
-### ✅ Milestone 1: Core Skeleton & API [COMPLETED]
-**Goal:** Windows Tray app with HTTP server on `127.0.0.1:9877`
-
-**Implemented Features:**
-- Windows Forms tray application with icon
-- Kestrel HTTP server running in background
-- Toggle console window from tray menu
-- Basic endpoints:
-  - `GET /health` - Returns server status
-  - `POST /print` - Placeholder (501)
-  - `GET /self-test` - Placeholder (501)
-- Single instance enforcement
-- Console logging with timestamps
-
-**Files Created:**
-- `PrinterTrayApp.csproj` - .NET 8 Windows Forms project
-- `Program.cs` - Entry point with mutex
-- `HttpServer.cs` - Kestrel server setup
-- `TrayApplicationContext.cs` - Tray icon management
-- `ConsoleWindow.cs` - Toggle console output
-- `Models/HealthResponse.cs` - API response model
-
-### 🚧 Milestone 2: Printer Discovery & Mapping [IN PROGRESS]
-**Goal:** Enumerate Windows printers and manage logical mappings
-
-**Planned Features:**
-- Discover all installed Windows printers
-- Support `printers.json` config for name mappings
-- Map logical names (e.g., "kitchen") to Windows printer names
-- Return printer list in `/health` and new `/printers` endpoint
-- Show printer online/offline status
-
-**Files to Create:**
-- `PrinterService.cs` - Printer discovery logic
-- `Models/PrinterMapping.cs` - Mapping model
-- `printers.json` - Optional configuration
-
-### 📅 Milestone 3: Print Job Intake [PENDING]
-**Goal:** Accept and validate print jobs via API
-
-**Print Job Schema v1.0:**
+### `GET /health`
+Returns server status and available printers
 ```json
 {
-  "version": "1.0",
-  "jobId": "uuid",
-  "targetPrinter": { "logicalName": "kitchen" },
-  "content": {
-    "type": "escpos-template",
-    "template": { 
-      "body": "<root>...</root>", 
-      "templateType": "Receipt|Docket" 
-    },
-    "templateData": { }
-  },
-  "options": { "copies": 1, "cut": true }
+  "ok": true,
+  "version": "0.1.0",
+  "printers": ["passkitchen", "Microsoft Print to PDF"],
+  "uptimeSeconds": 120
 }
 ```
 
-**Validation Rules:**
-- `version` must be "1.0"
-- Payload max 2MB
-- `jobId` required for idempotency
-- Unknown printer → 404
-- Invalid schema → 400
+### `GET /printers`
+Returns detailed printer information
+```json
+{
+  "printers": [{
+    "logicalName": "passkitchen",
+    "windowsPrinterName": "passkitchen",
+    "compositeId": "passkitchen@192.168.86.80",
+    "status": "Ready",
+    "isOnline": true,
+    "port": "192.168.86.80",
+    "portType": "NetworkIP",
+    "supportsRaw": true
+  }]
+}
+```
 
-### 📅 Milestone 4: Template Rendering [PENDING]
-**Goal:** Parse XML templates with token substitution
+### `POST /print`
+Accepts PrinterTask JSON from POS system
 
-**XML Elements (v1):**
-- `<text font-family="a|b" font-style="b" size="normal|wide|high|wide-high" align="left|center|right">`
-- `<blank lines="N"/>`
-- `<separator char="-"/>`
-- `<command cmd="cut"/>`
+⚠️ **CRITICAL: Following POS Architecture**
+The app uses ONLY these fields from PrinterTask:
+- `template.body` - XML template string
+- `templateData` - JSON string containing ALL data (including printer name)
+- `isOpenCashDrawer` - Boolean for cash drawer
+- `_id.id` - Only for logging
 
-**Token Format:** `{{path.to.value}}`
-- Empty substitutions skip entire node
-- Output neutral Instruction List (IR)
+**ALL OTHER FIELDS ARE IGNORED!** Root-level fields like `printerDeviceName` are deprecated.
 
-### 📅 Milestone 5: ESC/POS Compilation [PENDING]
-**Goal:** Convert IR to ESC/POS byte arrays
+```json
+{
+  "_id": { "id": "test-001", "siteId": "site-001" },
+  "template": {
+    "body": "<root>XML template with {{tokens}}</root>",
+    "name": "Receipt",
+    "templateType": "Docket"
+  },
+  "templateData": "{\"printerDeviceName\":\"passkitchen\",\"sites\":{...},\"orders\":{...}}",
+  "isOpenCashDrawer": false
+}
+```
 
-**Features:**
-- Text with alignment/sizing
-- Newlines and separators
-- Paper cut commands
-- Send via `winspool.drv` (RAW print)
+## 🎯 PrinterTask Model (POS Format)
 
-### 📅 Milestone 6: Job Processing & Status [PENDING]
-**Goal:** Queue management and job tracking
+### Fields Actually Used:
+```csharp
+public class PrinterTask {
+    // USED FIELDS:
+    public ReceiptTemplate template { get; set; }  // Only .body is used
+    public string templateData { get; set; }       // Contains EVERYTHING
+    public bool isOpenCashDrawer { get; set; }     // Cash drawer control
+    
+    // IGNORED FIELDS (for compatibility only):
+    public ObjectId _id { get; set; }              // Only .id for logging
+    public string printerDeviceName { get; set; }  // DEPRECATED - use templateData
+    public string printerName { get; set; }        // DEPRECATED - use templateData
+    // ... all other fields are ignored
+}
+```
 
-**Features:**
-- In-memory job queue
-- States: `queued → printing → completed|error`
-- Retry once on failure
-- `GET /jobs/:id` endpoint for status
+### templateData Structure:
+ALL data must be in templateData as JSON:
+```json
+{
+  // REQUIRED: Printer specification
+  "printerDeviceName": "passkitchen",  // or "printerName"
+  
+  // Data collections (lowercase keys!)
+  "sites": {...},      // Store information
+  "orders": {          // Order with products
+    ...orderData,
+    "mainProducts": [...]
+  },
+  "staff": {...},      // Staff member
+  "registers": {...},  // Terminal
+  "currencies": {...}, // Currency format
+  "taxes": [...],      // Tax breakdown
+  
+  // Print metadata
+  "dateOfPrinting": "17/01/2025, 2:30 PM",
+  "header": "RECEIPT",
+  "footer": "Thank you",
+  
+  // Alternative product locations
+  "printerTaskProduct": [...],  // Alt products
+  "products": [...]              // Test products
+}
+```
 
-### 📅 Milestone 7: Self-Test Feature [PENDING]
-**Goal:** Built-in diagnostic receipt
+## 📝 Template System
 
-**Endpoint:** `GET /self-test`
-**Prints:**
-- App name + version
-- Date/time
-- Installed printers list
-- Test patterns (text styles, cut)
+### XML Template Structure
+```xml
+<root charset="utf-8">
+    <text align="center" size="wide">{{header}}</text>
+    <separator char="-" />
+    <text>Date: {{dateOfPrinting}}</text>
+    <text>Item: {{item.name}} - {{item.price}}</text>
+    <blank lines="2" />
+    <command cmd="cut" />
+</root>
+```
 
-## 🧪 Test Commands
+### Supported Elements
+- `<text>` - Text with alignment, size, font options
+- `<separator>` - Line separator with custom character
+- `<blank>` - Empty lines
+- `<table>` - Table layout with columns
+- `<command>` - Printer commands (cut, opencashdrawer, beep)
+- `<receipt-section>` - Special receipt formatting
+- `<barcode>`, `<qrcode>` - Barcode generation
 
-### PowerShell Testing
+### Token Replacement
+- Format: `{{path.to.value}}`
+- Special tokens: `{{dateOfPrinting}}`, `{{currencyId}}`
+- Supports nested JSON paths
+- Empty tokens skip the entire element
+
+## 🖨️ ESC/POS Commands
+String-based commands (not bytes) matching POS implementation:
+- Text formatting (size, alignment, bold)
+- Paper operations (cut, feed)
+- Cash drawer control
+- Barcode/QR code printing
+
+## 🧪 Testing
+
+### Using the Test Form
+1. Right-click tray icon → "🧪 Test Print (JSON)"
+2. Paste PrinterTask JSON
+3. Select printer from dropdown
+4. Click "Send to Printer"
+5. View response
+
+### Command Line Testing
 ```powershell
-# Health check
-Invoke-WebRequest -Uri http://127.0.0.1:9877/health
+# Test print endpoint
+curl -X POST http://127.0.0.1:9877/print -H "Content-Type: application/json" -d @test.json
 
-# Print job (when implemented)
-$body = @{
-    version = "1.0"
-    jobId = "test-123"
-    targetPrinter = @{ logicalName = "kitchen" }
-    content = @{
-        type = "escpos-template"
-        template = @{
-            body = "<root><text>Test</text></root>"
-            templateType = "Receipt"
-        }
-        templateData = @{}
-    }
-    options = @{ copies = 1; cut = $true }
-} | ConvertTo-Json -Depth 10
-
-Invoke-WebRequest -Uri http://127.0.0.1:9877/print -Method POST -Body $body -ContentType "application/json"
-
-# Self-test
-Invoke-WebRequest -Uri http://127.0.0.1:9877/self-test
+# Check printer status
+curl http://127.0.0.1:9877/printers
 ```
 
-## 🏗️ Project Structure
-```
-PrinterTrayApp/
-├── PrinterTrayApp.csproj      # .NET 8 Windows Forms project
-├── Program.cs                 # Entry point + mutex
-├── HttpServer.cs              # Kestrel HTTP server
-├── TrayApplicationContext.cs  # System tray management
-├── ConsoleWindow.cs           # Console toggle functionality
-├── PrinterService.cs          # [TODO] Printer discovery
-├── Models/
-│   ├── HealthResponse.cs     # Health endpoint response
-│   ├── PrinterMapping.cs     # [TODO] Printer mappings
-│   └── PrintJob.cs           # [TODO] Job schema
-├── printers.json             # [TODO] Optional printer config
-└── CLAUDE.md                 # This file - Development guide
+## ⚙️ Configuration
+
+### printers.json (Optional)
+```json
+{
+  "mappings": [{
+    "logicalName": "kitchen",
+    "windowsPrinterName": "passkitchen"
+  }],
+  "fallbackPrinter": "passkitchen"
+}
 ```
 
-## 🛠️ Tech Stack
-- **.NET 8** - Latest LTS framework
-- **Windows Forms** - System tray icon
-- **ASP.NET Core Kestrel** - Lightweight HTTP server
-- **System.Drawing.Printing** - Windows printer access
-- **System.Text.Json** - JSON serialization
+## 🔧 Build & Deploy
 
-## 📝 Current Status
-- ✅ Tray app running with HTTP server
-- ✅ Console window toggle
-- ✅ Basic API endpoints
-- 🚧 Working on printer discovery
-- ⏳ Print job processing pending
-- ⏳ ESC/POS compilation pending
+### Development
+```bash
+dotnet build
+dotnet run
+```
 
-## 🎯 Next Steps
-1. Complete printer discovery implementation
-2. Test with actual Windows printers
-3. Add printer mapping configuration
-4. Begin print job intake (Milestone 3)
+### Production Build
+```bash
+dotnet publish -c Release -r win-x64 --self-contained true /p:PublishSingleFile=true
+```
 
-## 💡 Important Notes
+## 🚦 Safety Features
+- **Cash Drawer Safety**: Max 3 retry attempts for cash drawer operations
+- **Job Tracking**: Human-readable job numbers for audit trail
+- **Error Handling**: Detailed error responses with retry counts
+- **Memory Monitoring**: Built-in memory leak detection
+
+## 📋 Development Rules
+
+### 1. Code Quality
+- NO COMMENTS in code unless explicitly requested
+- Follow existing patterns and conventions
+- Check for existing libraries before adding new ones
+- Never expose or log secrets/keys
+
+### 2. Testing Requirements
+- Test each endpoint after implementation
+- Verify with actual thermal printer
+- Run lint/typecheck if available
+- Test edge cases and error conditions
+
+### 3. Incremental Development
+- Build features incrementally
+- Each part must be independently testable
+- Provide clear test instructions
+
+## 🎯 Next Steps (When Ready)
+1. Implement printer mapping by ID/location
+2. Add job queue persistence
+3. Implement job status tracking endpoint
+4. Add printer-specific configurations
+5. Create Windows installer
+
+## 📝 Important Notes
 - App runs on fixed port `127.0.0.1:9877`
 - Single instance enforced via mutex
-- Console shows live HTTP request logs
-- Tray icon provides quick access to console and status
-- All endpoints return JSON responses
-- Eventually will publish as single .exe file
+- Supports RAW printing for thermal printers
+- Console window toggleable from tray menu
+- All responses are JSON formatted
 
-## 🚨 Remember
-1. **ALWAYS PLAN FIRST** - Never jump into code
-2. **TEST AFTER EACH PART** - User wants incremental testing
-3. **NO COMMENTS** - Unless explicitly requested
-4. **FOLLOW PATTERNS** - Check existing code style first
+## 🧭 Quick Commands
+```powershell
+# Run the app
+cd C:\Users\johnk\repo\printing\PrinterTrayApp
+dotnet run
+
+# Test print
+curl -X POST http://127.0.0.1:9877/print -H "Content-Type: application/json" -d "{...}"
+
+# Check health
+curl http://127.0.0.1:9877/health
+```
+
+---
+*Last Updated: 2025-01-16*
+*Status: Production Ready - Awaiting printer mapping requirements*

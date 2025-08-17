@@ -1,0 +1,8 @@
+{
+  "_id": { "id": "test-products-1" },
+  "template": {
+    "body": "<root charset=\"utf-8\"><text align=\"center\" size=\"wide\">TEST DOCKET</text><separator char=\"-\" /><docket-section product-scale=\"6\" product-style=\"b\" modifier-scale=\"6\" modifier-style=\"normal\" /><separator char=\"-\" /><text align=\"center\">End of Order</text></root>"
+  },
+  "templateData": "{\"orders\":{\"mainProducts\":[{\"categories\":[{\"category\":{\"name\":\"Burgers\",\"products\":[{\"productName\":\"Classic Burger\",\"printName\":\"Classic Burger\",\"level\":0,\"qty\":\"1\",\"symbol\":\"x\",\"unitPrice\":1200},{\"productName\":\"Add Cheese\",\"printName\":\"Cheese\",\"level\":1,\"qty\":\"\",\"symbol\":\"\",\"unitPrice\":150},{\"productName\":\"Add Bacon\",\"printName\":\"Bacon\",\"level\":1,\"qty\":\"\",\"symbol\":\"\",\"unitPrice\":200}]}}]},{\"categories\":[{\"category\":{\"name\":\"Drinks\",\"products\":[{\"productName\":\"Coke\",\"printName\":\"Coke\",\"level\":0,\"qty\":\"2\",\"symbol\":\"x\",\"unitPrice\":350}]}}]}]}}",
+  "isOpenCashDrawer": false
+}

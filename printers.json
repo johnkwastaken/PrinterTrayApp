@@ -1,0 +1,34 @@
+{
+  "mappings": [
+    {
+      "logicalName": "kitchen",
+      "windowsPrinterName": "passkitchen",
+      "description": "Kitchen thermal printer",
+      "location": "Kitchen",
+      "isDefault": false
+    },
+    {
+      "logicalName": "bar",
+      "windowsPrinterName": "passkitchen",
+      "description": "Bar printer",
+      "location": "Bar",
+      "isDefault": false
+    },
+    {
+      "logicalName": "receipt",
+      "windowsPrinterName": "passkitchen",
+      "description": "Main receipt printer",
+      "location": "Counter",
+      "isDefault": true
+    },
+    {
+      "logicalName": "pdf",
+      "windowsPrinterName": "Microsoft Print to PDF",
+      "description": "PDF test printer",
+      "location": "Virtual",
+      "isDefault": false
+    }
+  ],
+  "fallbackPrinter": "passkitchen",
+  "enableFallback": true
+}

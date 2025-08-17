@@ -1,0 +1,8 @@
+{
+  "_id": { "id": "simple-1" },
+  "template": {
+    "body": "<root><text>Order:</text><blank lines=\"1\" /><docket-section /></root>"
+  },
+  "templateData": "{\"orders\":{\"mainProducts\":[{\"categories\":[{\"category\":{\"name\":\"Test Category\",\"products\":[{\"productName\":\"Burger\",\"level\":0,\"qty\":\"1\",\"symbol\":\"x\"},{\"productName\":\"Cheese\",\"level\":1,\"qty\":\"\",\"symbol\":\"\"},{\"productName\":\"Extra Bacon\",\"level\":2,\"qty\":\"\",\"symbol\":\"\"}]}}]}]}}",
+  "isOpenCashDrawer": false
+}

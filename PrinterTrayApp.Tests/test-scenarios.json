@@ -1,0 +1,62 @@
+[
+  {
+    "name": "Simple Text Test",
+    "description": "Basic text printing with cut",
+    "json": {
+      "_id": {"id": "test-simple", "siteId": "site-001"},
+      "template": {
+        "body": "<root><text align=\"center\">SIMPLE TEST</text><text>Line 1</text><text>Line 2</text><blank lines=\"3\" /><command cmd=\"cut\" /></root>",
+        "name": "SimpleTest",
+        "templateType": 0
+      },
+      "templateData": "{}",
+      "printerDeviceName": "passkitchen",
+      "isOpenCashDrawer": false
+    }
+  },
+  {
+    "name": "Receipt with Items",
+    "description": "Full receipt with dynamic data",
+    "json": {
+      "_id": {"id": "test-receipt", "siteId": "site-001"},
+      "template": {
+        "body": "<root><text align=\"center\" size=\"wide\">DNERO CAFE</text><separator char=\"=\" /><text>Date: {{dateOfPrinting}}</text><text>Order #{{orderNum}}</text><blank lines=\"1\" /><text>{{item1}}</text><text align=\"right\">{{price1}}</text><text>{{item2}}</text><text align=\"right\">{{price2}}</text><separator char=\"-\" /><text size=\"wide\" font-style=\"b\">TOTAL: {{total}}</text><blank lines=\"3\" /><command cmd=\"cut\" /></root>",
+        "name": "ReceiptTest",
+        "templateType": 0
+      },
+      "templateData": "{\"orderNum\":\"54321\",\"item1\":\"Coffee\",\"price1\":\"$3.50\",\"item2\":\"Sandwich\",\"price2\":\"$8.50\",\"total\":\"$12.00\"}",
+      "printerDeviceName": "passkitchen",
+      "isOpenCashDrawer": false
+    }
+  },
+  {
+    "name": "Cash Drawer Test",
+    "description": "Open cash drawer with receipt",
+    "json": {
+      "_id": {"id": "test-drawer", "siteId": "site-001"},
+      "template": {
+        "body": "<root><text align=\"center\">CASH SALE</text><text>Amount: $50.00</text><text>Change: $10.00</text><blank lines=\"2\" /><command cmd=\"cut\" /></root>",
+        "name": "CashTest",
+        "templateType": 0
+      },
+      "templateData": "{}",
+      "printerDeviceName": "passkitchen",
+      "isOpenCashDrawer": true
+    }
+  },
+  {
+    "name": "Kitchen Docket",
+    "description": "Kitchen order docket",
+    "json": {
+      "_id": {"id": "test-kitchen", "siteId": "site-001"},
+      "template": {
+        "body": "<root><text align=\"center\" size=\"wide\">KITCHEN ORDER</text><separator char=\"*\" /><text size=\"wide\">Table: {{table}}</text><text>Time: {{time}}</text><blank lines=\"1\" /><text font-style=\"b\">{{item1}}</text><text margin=\"2\">- {{mod1}}</text><text font-style=\"b\">{{item2}}</text><text margin=\"2\">- No onions</text><separator char=\"-\" /><text align=\"center\">*** ORDER END ***</text><blank lines=\"3\" /><command cmd=\"cut\" /></root>",
+        "name": "KitchenDocket",
+        "templateType": 1
+      },
+      "templateData": "{\"table\":\"12\",\"time\":\"12:30 PM\",\"item1\":\"Burger\",\"mod1\":\"Extra cheese\",\"item2\":\"Fries\"}",
+      "printerDeviceName": "passkitchen",
+      "isOpenCashDrawer": false
+    }
+  }
+]

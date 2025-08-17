@@ -1,0 +1,13 @@
+{
+  "_id": {
+    "id": "0415D6E4-F83B-4ADB-9336-4BA2D5B2894F",
+    "orgId": "72c35cd1-dcb3-43c2-8e95-ba4730cf01d2",
+    "siteId": "a25a42df-8350-4d54-8f42-3531ce8624c1"
+  },
+  "template": {
+    "body": "<root charset=\"utf-8\">\n  <text align=\"center\" size=\"wide\" font=\"bold\">{{sites.name}}</text>\n  <separator char=\"-\" />\n  <text>Order: {{orders.docNumber}}</text>\n  <text>Date: {{dateOfPrinting}}</text>\n  <separator char=\"-\" />\n  <docket-section />\n  <separator char=\"=\" />\n  <text size=\"wide\">Total: {{orders.total}}</text>\n  <blank lines=\"3\" />\n  <command cmd=\"cut\" />\n</root>",
+    "name": "Test Docket"
+  },
+  "templateData": "{\"sites\":{\"name\":\"Palmerston North\"},\"orders\":{\"docNumber\":\"DE-87\",\"tableNumber\":null,\"orderType\":\"Dine In\",\"total\":\"14.40\",\"mainProducts\":[{\"categories\":[{\"category\":{\"name\":\"Burgers\"},\"products\":[{\"printName\":\"Easy cheesy with bacon burger\",\"qty\":\"1\",\"price\":\"14.40\"}]}]}]},\"staff\":{\"firstName\":\"Super\",\"lastName\":\"Admin\"},\"dateOfPrinting\":\"23/07/2025, 2:48 PM\",\"printerName\":\"passkitchen\",\"appVersion\":\"1.2.0 (1903)\"}",
+  "isOpenCashDrawer": false
+}

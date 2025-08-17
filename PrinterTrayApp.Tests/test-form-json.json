@@ -1,0 +1,17 @@
+{
+  "_id": {
+    "id": "form-test-001",
+    "siteId": "site-001"
+  },
+  "template": {
+    "body": "<root charset=\"utf-8\"><text align=\"center\" size=\"wide\">FORM TEST RECEIPT</text><separator char=\"=\" /><text>Date: {{dateOfPrinting}}</text><text>Order: {{orderNumber}}</text><blank lines=\"1\" /><text>{{item1}} - {{price1}}</text><text>{{item2}} - {{price2}}</text><separator char=\"-\" /><text size=\"wide\" font-style=\"b\">TOTAL: {{total}}</text><blank lines=\"2\" /><text align=\"center\">Testing from JSON Form</text><blank lines=\"3\" /><command cmd=\"cut\" /></root>",
+    "name": "FormTestReceipt",
+    "templateType": 0
+  },
+  "templateData": "{\"orderNumber\":\"FORM-12345\",\"item1\":\"Test Item 1\",\"price1\":\"$10.00\",\"item2\":\"Test Item 2\",\"price2\":\"$15.00\",\"total\":\"$25.00\"}",
+  "printerDeviceName": "passkitchen",
+  "isOpenCashDrawer": false,
+  "retryCount": 0,
+  "active": true,
+  "evicted": false
+}

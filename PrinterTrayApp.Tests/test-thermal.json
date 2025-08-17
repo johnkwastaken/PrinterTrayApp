@@ -1,0 +1,18 @@
+{
+  "_id": {
+    "id": "test-002",
+    "siteId": "site-001"
+  },
+  "template": {
+    "body": "<root><text align=\"center\">TEST PRINT</text><separator char=\"-\" /><text>Line 1: Test</text><text>Line 2: Hello</text><blank lines=\"2\" /><text align=\"center\">End of Test</text><blank lines=\"3\" /><command cmd=\"cut\" /></root>",
+    "name": "TestReceipt",
+    "templateType": "Receipt"
+  },
+  "templateData": "{}",
+  "printerDeviceName": "passkitchen",
+  "isOpenCashDrawer": false,
+  "retryCount": 0,
+  "printerName": "Kitchen Printer",
+  "evicted": false,
+  "active": true
+}

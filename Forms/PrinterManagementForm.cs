@@ -1,5 +1,6 @@
 using System.Windows.Forms;
 using PrinterTrayApp.Services;
+using PrinterTrayApp.Models;
 
 namespace PrinterTrayApp.Forms;
 
@@ -25,8 +26,8 @@ public class PrinterManagementForm : Form
     private void InitializeComponents()
     {
         Text = "Printer Management - Printer Tray App";
-        Width = 800;
-        Height = 500;
+        Width = Constants.UI.FormWidth;
+        Height = Constants.UI.FormHeight;
         StartPosition = FormStartPosition.CenterScreen;
         
         var mainPanel = new Panel
@@ -44,8 +45,8 @@ public class PrinterManagementForm : Form
         _refreshButton = new Button
         {
             Text = "🔄 Refresh",
-            Width = 100,
-            Height = 30,
+            Width = Constants.UI.ButtonWidth,
+            Height = Constants.UI.ButtonHeight,
             Location = new Point(0, 5)
         };
         _refreshButton.Click += (s, e) => RefreshPrinters();
@@ -53,8 +54,8 @@ public class PrinterManagementForm : Form
         _testPrintButton = new Button
         {
             Text = "🖨️ Test Print",
-            Width = 100,
-            Height = 30,
+            Width = Constants.UI.ButtonWidth,
+            Height = Constants.UI.ButtonHeight,
             Location = new Point(110, 5),
             Enabled = false
         };
@@ -122,6 +123,23 @@ public class PrinterManagementForm : Form
         {
             _testPrintButton.Enabled = _printerGrid.SelectedRows.Count > 0;
         };
+        
+        // Add right-click context menu
+        var contextMenu = new ContextMenuStrip();
+        
+        var testPrintItem = new ToolStripMenuItem("Print Windows Test Page");
+        testPrintItem.Click += (s, e) => TestPrint();
+        contextMenu.Items.Add(testPrintItem);
+        
+        var propertiesItem = new ToolStripMenuItem("Printer Properties");
+        propertiesItem.Click += (s, e) => ShowPrinterProperties();
+        contextMenu.Items.Add(propertiesItem);
+        
+        var queueItem = new ToolStripMenuItem("View Print Queue");
+        queueItem.Click += (s, e) => ShowPrintQueue();
+        contextMenu.Items.Add(queueItem);
+        
+        _printerGrid.ContextMenuStrip = contextMenu;
 
         mainPanel.Controls.Add(_printerGrid);
         
@@ -130,75 +148,143 @@ public class PrinterManagementForm : Form
 
         _refreshTimer = new System.Windows.Forms.Timer
         {
-            Interval = 1000  // Start with 1 second for responsiveness
+            Interval = Constants.RefreshIntervals.ActiveMilliseconds
         };
         _refreshTimer.Tick += (s, e) => AutoRefreshPrinters();
     }
 
     private void LoadPrinters()
     {
-        var printers = _printerService.GetAllPrinters();
+        try
+        {
+            var printers = _printerService.GetAllPrinters();
+            UpdatePrinterGrid(printers);
+        }
+        catch (Exception ex)
+        {
+            ConsoleWindow.WriteError($"Failed to load printers: {ex.Message}");
+            _statusLabel.Text = "Error loading printers";
+        }
+    }
+
+    private void UpdatePrinterGrid(List<PrinterInfo> printers)
+    {
+        _printerGrid.SuspendLayout();
         
-        // Store selected printer before refresh
+        // Store selected printer
         string? selectedPrinter = null;
         if (_printerGrid.SelectedRows.Count > 0)
         {
             selectedPrinter = _printerGrid.SelectedRows[0].Cells["WindowsName"].Value?.ToString();
         }
         
-        _printerGrid.Rows.Clear();
+        // Build dictionary of existing rows
+        var existingRows = new Dictionary<string, DataGridViewRow>();
+        foreach (DataGridViewRow row in _printerGrid.Rows)
+        {
+            var name = row.Cells["WindowsName"].Value?.ToString();
+            if (name != null)
+                existingRows[name] = row;
+        }
         
         int totalJobs = 0;
+        var processedPrinters = new HashSet<string>();
         
         foreach (var printer in printers)
         {
-            var row = _printerGrid.Rows[_printerGrid.Rows.Add()];
-            row.Cells["LogicalName"].Value = printer.LogicalName;
-            row.Cells["WindowsName"].Value = printer.WindowsPrinterName;
-            row.Cells["Status"].Value = printer.Status;
-            row.Cells["Port"].Value = printer.PortName;
-            row.Cells["Jobs"].Value = printer.JobCount.ToString();
-            
+            processedPrinters.Add(printer.WindowsPrinterName);
             totalJobs += (int)printer.JobCount;
             
-            // Color code based on status
-            var statusText = printer.Status.ToLower();
-            
-            if (statusText == "ready" || statusText == "waiting" || statusText == "active")
+            if (existingRows.TryGetValue(printer.WindowsPrinterName, out var row))
             {
-                row.DefaultCellStyle.ForeColor = System.Drawing.Color.Green;
-                row.Cells["Status"].Style.Font = new System.Drawing.Font(row.InheritedStyle.Font, System.Drawing.FontStyle.Bold);
-            }
-            else if (statusText == "printing" || statusText == "processing" || statusText == "busy")
-            {
-                row.DefaultCellStyle.ForeColor = System.Drawing.Color.Blue;
-            }
-            else if (statusText == "paused" || statusText == "warming up" || statusText == "initializing" || statusText == "power save")
-            {
-                row.DefaultCellStyle.ForeColor = System.Drawing.Color.Orange;
-            }
-            else if (printer.HasError || !printer.IsOnline || statusText.Contains("error") || statusText.Contains("offline"))
-            {
-                row.DefaultCellStyle.ForeColor = System.Drawing.Color.Red;
-                row.Cells["Status"].Style.Font = new System.Drawing.Font(row.InheritedStyle.Font, System.Drawing.FontStyle.Bold);
+                // Update existing row only if values changed
+                bool needsUpdate = false;
+                
+                if (row.Cells["Status"].Value?.ToString() != printer.Status)
+                {
+                    row.Cells["Status"].Value = printer.Status;
+                    needsUpdate = true;
+                }
+                
+                var jobsText = printer.JobCount.ToString();
+                if (row.Cells["Jobs"].Value?.ToString() != jobsText)
+                {
+                    row.Cells["Jobs"].Value = jobsText;
+                    needsUpdate = true;
+                }
+                
+                if (row.Cells["LogicalName"].Value?.ToString() != printer.LogicalName)
+                {
+                    row.Cells["LogicalName"].Value = printer.LogicalName;
+                    needsUpdate = true;
+                }
+                
+                if (needsUpdate)
+                {
+                    UpdateRowStyle(row, printer);
+                }
             }
             else
             {
-                row.DefaultCellStyle.ForeColor = System.Drawing.Color.DarkGray;
+                // Add new printer
+                row = _printerGrid.Rows[_printerGrid.Rows.Add()];
+                row.Cells["LogicalName"].Value = printer.LogicalName;
+                row.Cells["WindowsName"].Value = printer.WindowsPrinterName;
+                row.Cells["Status"].Value = printer.Status;
+                row.Cells["Port"].Value = printer.PortName;
+                row.Cells["Jobs"].Value = printer.JobCount.ToString();
+                UpdateRowStyle(row, printer);
             }
             
             // Restore selection
-            if (selectedPrinter != null && printer.WindowsPrinterName == selectedPrinter)
+            if (selectedPrinter == printer.WindowsPrinterName)
             {
                 row.Selected = true;
             }
         }
         
-        _activeJobCount = totalJobs;
+        // Remove printers that no longer exist
+        foreach (var kvp in existingRows)
+        {
+            if (!processedPrinters.Contains(kvp.Key))
+            {
+                _printerGrid.Rows.Remove(kvp.Value);
+            }
+        }
         
-        // Update status with job count indicator
+        _printerGrid.ResumeLayout();
+        
+        _activeJobCount = totalJobs;
         var jobIndicator = totalJobs > 0 ? $" | {totalJobs} active job(s)" : "";
         _statusLabel.Text = $"Found {printers.Count} printer(s){jobIndicator} - Updated: {DateTime.Now:HH:mm:ss}";
+    }
+
+    private void UpdateRowStyle(DataGridViewRow row, PrinterInfo printer)
+    {
+        var statusText = printer.Status.ToLower();
+        
+        if (statusText == "ready" || statusText == "waiting" || statusText == "active")
+        {
+            row.DefaultCellStyle.ForeColor = System.Drawing.Color.Green;
+            row.Cells["Status"].Style.Font = new System.Drawing.Font(row.InheritedStyle.Font, System.Drawing.FontStyle.Bold);
+        }
+        else if (statusText == "printing" || statusText == "processing" || statusText == "busy")
+        {
+            row.DefaultCellStyle.ForeColor = System.Drawing.Color.Blue;
+        }
+        else if (statusText == "paused" || statusText == "warming up" || statusText == "initializing" || statusText == "power save")
+        {
+            row.DefaultCellStyle.ForeColor = System.Drawing.Color.Orange;
+        }
+        else if (printer.HasError || !printer.IsOnline || statusText.Contains("error") || statusText.Contains("offline"))
+        {
+            row.DefaultCellStyle.ForeColor = System.Drawing.Color.Red;
+            row.Cells["Status"].Style.Font = new System.Drawing.Font(row.InheritedStyle.Font, System.Drawing.FontStyle.Bold);
+        }
+        else
+        {
+            row.DefaultCellStyle.ForeColor = System.Drawing.Color.DarkGray;
+        }
     }
 
     private void AutoRefreshPrinters()
@@ -214,23 +300,34 @@ public class PrinterManagementForm : Form
         // Adjust refresh rate based on activity
         if (_activeJobCount > 0)
         {
-            // Fast refresh (1 second) when jobs are active
-            _refreshTimer.Interval = 1000;
+            // Fast refresh when jobs are active
+            _refreshTimer.Interval = Constants.RefreshIntervals.ActiveMilliseconds;
         }
         else
         {
-            // Slower refresh (3 seconds) when idle
-            _refreshTimer.Interval = 3000;
+            // Slower refresh when idle
+            _refreshTimer.Interval = Constants.RefreshIntervals.IdleMilliseconds;
         }
     }
 
     private void RefreshPrinters()
     {
-        _isManualRefreshing = true;
-        _statusLabel.Text = "Refreshing...";
-        _printerService.RefreshPrinters(true);  // Log manual refresh
-        LoadPrinters();
-        _isManualRefreshing = false;
+        try
+        {
+            _isManualRefreshing = true;
+            _statusLabel.Text = "Refreshing...";
+            _printerService.RefreshPrinters(true);  // Log manual refresh
+            LoadPrinters();
+        }
+        catch (Exception ex)
+        {
+            ConsoleWindow.WriteError($"Manual refresh failed: {ex.Message}");
+            _statusLabel.Text = "Refresh failed";
+        }
+        finally
+        {
+            _isManualRefreshing = false;
+        }
     }
 
     private void TestPrint()
@@ -238,8 +335,102 @@ public class PrinterManagementForm : Form
         if (_printerGrid.SelectedRows.Count > 0)
         {
             var printerName = _printerGrid.SelectedRows[0].Cells["WindowsName"].Value?.ToString();
-            MessageBox.Show($"Test print to '{printerName}' will be available after Milestone 7", 
-                "Test Print", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            if (!string.IsNullOrEmpty(printerName))
+            {
+                try
+                {
+                    _statusLabel.Text = $"Sending test to {printerName}...";
+                    ConsoleWindow.WriteLine($"Initiating test print to: {printerName}");
+                    
+                    // Send test print using PrintDirect
+                    var testCommands = "ESC@\nTEST PRINT\n\n\nEscP";
+                    var jobId = PrintDirect.Print(
+                        printerName,
+                        "TEST_PRINT",
+                        "RAW",
+                        testCommands);
+                    
+                    if (jobId > 0)
+                    {
+                        _statusLabel.Text = $"Test sent to {printerName}";
+                        ConsoleWindow.WriteLine($"Test print sent successfully to: {printerName}");
+                        MessageBox.Show($"Simple test has been sent to '{printerName}'.\n\nCheck the printer output.", 
+                            "Test Print", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                    }
+                    else
+                    {
+                        _statusLabel.Text = $"Cannot test {printerName}";
+                        
+                        // Check if it's a virtual printer
+                        var nameLower = printerName.ToLower();
+                        if (nameLower.Contains("pdf") || nameLower.Contains("xps") || nameLower.Contains("onenote"))
+                        {
+                            ConsoleWindow.WriteLine($"Virtual printer detected, cannot print: {printerName}");
+                            MessageBox.Show($"'{printerName}' is a virtual printer.\n\nVirtual printers don't support RAW printing.\nThis app is designed for physical printers and ESC/POS devices.", 
+                                "Virtual Printer", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                        }
+                        else
+                        {
+                            ConsoleWindow.WriteError($"Test print failed for: {printerName}");
+                            MessageBox.Show($"Failed to send test to '{printerName}'.\n\nMake sure the printer is online and supports RAW printing.", 
+                                "Test Print Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    ConsoleWindow.WriteError($"Test print exception for {printerName}: {ex.Message}");
+                    _statusLabel.Text = "Test print error";
+                    MessageBox.Show($"Error during test print:\n{ex.Message}", "Test Print Error", 
+                        MessageBoxButtons.OK, MessageBoxIcon.Error);
+                }
+            }
+        }
+    }
+
+    private void ShowPrinterProperties()
+    {
+        if (_printerGrid.SelectedRows.Count > 0)
+        {
+            var printerName = _printerGrid.SelectedRows[0].Cells["WindowsName"].Value?.ToString();
+            if (!string.IsNullOrEmpty(printerName))
+            {
+                try
+                {
+                    ConsoleWindow.WriteLine($"Opening properties for printer: {printerName}");
+                    // Open printer properties using Windows shell
+                    System.Diagnostics.Process.Start("rundll32.exe", $"printui.dll,PrintUIEntry /p /n \"{printerName}\"");
+                }
+                catch (Exception ex)
+                {
+                    ConsoleWindow.WriteError($"Failed to open printer properties: {ex.Message}");
+                    MessageBox.Show($"Could not open printer properties:\n{ex.Message}", "Error", 
+                        MessageBoxButtons.OK, MessageBoxIcon.Error);
+                }
+            }
+        }
+    }
+
+    private void ShowPrintQueue()
+    {
+        if (_printerGrid.SelectedRows.Count > 0)
+        {
+            var printerName = _printerGrid.SelectedRows[0].Cells["WindowsName"].Value?.ToString();
+            if (!string.IsNullOrEmpty(printerName))
+            {
+                try
+                {
+                    ConsoleWindow.WriteLine($"Opening print queue for: {printerName}");
+                    // Open print queue using Windows shell
+                    System.Diagnostics.Process.Start("rundll32.exe", $"printui.dll,PrintUIEntry /o /n \"{printerName}\"");
+                }
+                catch (Exception ex)
+                {
+                    ConsoleWindow.WriteError($"Failed to open print queue: {ex.Message}");
+                    MessageBox.Show($"Could not open print queue:\n{ex.Message}", "Error", 
+                        MessageBoxButtons.OK, MessageBoxIcon.Error);
+                }
+            }
         }
     }
 

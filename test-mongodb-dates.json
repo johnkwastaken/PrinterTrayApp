@@ -1,0 +1,66 @@
+{
+  "_id": {
+    "id": "02f0585e-eabb-42d2-90fa-12882324c7ce",
+    "orgId": "72c35cd1-dcb3-43c2-8e95-ba4730cf01d2",
+    "siteId": "a25a42df-8350-4d54-8f42-3531ce8624c1"
+  },
+  "active": false,
+  "appVersion": "",
+  "createdTime": {
+    "$date": 1751688065.611
+  },
+  "currentPrinterId": "c7d683ab-59fc-4bc2-901d-734d93f24909",
+  "error": "",
+  "inProgress": true,
+  "integrationData": null,
+  "ipAddress": "192.168.86.53",
+  "isComplete": true,
+  "isOpenCashDrawer": false,
+  "isSuspend": false,
+  "jobId": null,
+  "printedTime": {
+    "$date": 1751688068.157916
+  },
+  "printerDeviceName": "",
+  "printerName": "passkitchen",
+  "retryCount": 0,
+  "secondPrinterIds": [],
+  "sentTime": {
+    "$date": 1751688068.0105119
+  },
+  "sourceDevice": {
+    "deviceId": "",
+    "name": "Online"
+  },
+  "status": "PRINTED",
+  "targetDevice": {
+    "deviceId": "5908918443584880173",
+    "name": "Online (Target Device)"
+  },
+  "template": {
+    "_id": "091a7575-21b3-4952-b7f2-edd3ee6b9b38",
+    "active": true,
+    "body": "<root charset=\"utf-8\" isa=\"esc\">    <text font-family=\"a\" font-invert=\"1\" align=\"center\">{{sites.name}}</text>    <text font-style=\"normal\" align=\"left\">Table: {{orders.tableNumber}}</text>    <text font-style=\"normal\" align=\"left\">Order: {{orders.docNumber}}</text>    <text font-style=\"b\" align=\"left\">{{orders.numGuests}} Guests</text>    <text font-style=\"normal\" align=\"center\">{{orders.orderType}}</text>    <text align=\"left\">{{orders.requestedReadyTime}}</text>    <blank lines=\"1\" />    <text align=\"left\">{{orders.docDate}}</text>    <text align=\"left\">Staff: {{staff.firstName}} {{staff.lastName}}</text>    <blank lines=\"1\" />    <text size=\"high\" font-style=\"b\" align=\"left\">{{orders.docNotes}}</text>    <blank lines=\"1\" />    <separator char=\"-\" />    <docket-section product-name-field=\"printName\" product-scale=\"6\" product-style=\"normal\" product-color=\"color_1\" modifier-name-field=\"printName\" modifier-scale=\"6\" modifier-style=\"normal\" modifier-color=\"color_1\" category-header-hidden=\"false\" category-name-field=\"name\" category-scale=\"6\" category-style=\"normal\" course-header-hidden=\"false\" course-name-field=\"name\" course-scale=\"6\" course-style=\"normal\" note-scale=\"6\" note-style=\"normal\" note-color=\"color_1\" />    <separator char=\"-\" />    <blank lines=\"1\" />    <text align=\"center\">{{dateOfPrinting}}</text>    <text align=\"center\">Register: {{registers.registerName}}</text>    <text align=\"center\">Printer: {{printerName}}</text>    <text align=\"center\">Printed by Dnero POS</text>    <separator char=\"-\" />    <text font-family=\"b\" align=\"center\">Application version: {{appVersion}}</text>    <text font-family=\"b\" align=\"center\">Docket version: 2</text>    <blank lines=\"1\" />    <command cmd=\"cut\" />    <blank lines=\"4\" /></root>",
+    "createdTime": {
+      "$date": 1747649800.171
+    },
+    "defaultTemplate": true,
+    "docType": "",
+    "filter": null,
+    "integrationData": null,
+    "name": "Order Docket",
+    "orgId": "72c35cd1-dcb3-43c2-8e95-ba4730cf01d2",
+    "siteId": "a25a42df-8350-4d54-8f42-3531ce8624c1",
+    "templateType": "Docket",
+    "updatedBySystem": "dnero-api",
+    "updatedTime": {
+      "$date": 1747649800.171
+    }
+  },
+  "templateData": "{\"sites\":{\"createdTime\":1747649800.059,\"updatedTime\":1751687120.226,\"updatedBySystem\":\"dnero-api\",\"orgId\":\"72c35cd1-dcb3-43c2-8e95-ba4730cf01d2\",\"active\":true,\"address\":{\"address1\":\"\",\"address2\":\"\",\"city\":\"\",\"countryId\":\"51da57e2-5711-4e81-8016-c54e8eb494e0\",\"postalCode\":\"\",\"state\":\"\",\"latitude\":null,\"longitude\":null,\"description\":\"\"},\"name\":\"Palmerston North\",\"organisationPath\":[],\"settings\":{\"currencyId\":\"NZD\",\"taxAggregationMethod\":\"PER_TAX\",\"taxRoundingMethod\":\"HALF_UP\",\"pricesIncludeTax\":true,\"defaultTaxGroupCode\":\"ff7f291c-ec47-4ce6-9fc8-b82da72f84af\",\"timeZone\":\"Pacific/Auckland\",\"printZeroPriceModifiers\":false,\"printNotes\":false,\"tableOrderingAllowPayAtTable\":true,\"trackInventory\":false,\"primaryStockLocationId\":null,\"accountCodes\":{\"rounding\":\"ROUNDING\",\"discounts\":\"DISCOUNTS\",\"variance\":\"VARIANCE\",\"charges\":\"DEFAULT_CHARGES\",\"cash\":\"DEFAULT_CASH\",\"card\":\"DEFAULT_CARD\",\"otherPayment\":\"DEFAULT_OTHER_PAYMENTS\",\"pettyCash\":\"PETTY_CASH\"},\"onlineReceiptPrinterId\":null,\"useOnlinePrintService\":true,\"receiptSplitQty\":false,\"docketSplitQty\":false,\"autoCapturePayments\":false,\"paymentAutoCaptureTimeUntil\":null,\"docketCartQty\":false,\"receiptCartQty\":false,\"onlineOrderingOrderTypeCodes\":[],\"suggestedTipPercents\":[],\"replyToName\":\"\",\"replyToEmail\":\"\",\"allowTableReservation\":false,\"tableReservationDuration\":null,\"orderVisibilityCutoffMinutes\":null},\"colourPalette\":[\"#e0fffe\",\"#f3e350\",\"#e6e6fa\",\"#a8e7f0\",\"#d0de62\",\"#d8bfd8\",\"#ef8200\",\"#f08080\",\"#3da966\",\"#40b5d2\",\"#f5f5dc\",\"#d2b48c\",\"#ff6348\",\"#17ff99\"],\"_noSync\":{\"syncGroupId\":1464195855},\"isInitialised\":true,\"image\":null,\"uplistaSearchable\":false,\"taxNumber\":\"\",\"taxLabel\":\"GST\",\"applicationFeeRates\":{\"tableOrdering\":{\"percentTimes1000\":2900,\"fixedAmount\":30},\"pos\":{\"percentTimes1000\":1600,\"fixedAmount\":10}},\"uplistaGroupId\":null,\"features\":{\"staffClockIn\":false,\"shiftReview\":{\"active\":false}},\"startReportingHour\":{\"hour\":0,\"minute\":0},\"endReportingHour\":{\"hour\":0,\"minute\":0},\"visibleOrderTypes\":[],\"giftCardGroupIds\":[],\"applicationState\":\"\"},\"currencies\":{\"currencyPrecision\":2,\"currencySymbol\":\"$\",\"updatedTime\":1751295645.459,\"createdTime\":1647231651.428,\"active\":true,\"stripeCurrency\":\"nzd\",\"denominations\":[10,20,50,100,200,500,1000,2000,5000,10000],\"noteDenominations\":[500,1000,2000,5000,10000],\"coinDenominations\":[10,20,50,100,200],\"currencySymbolIsSuffix\":false},\"orders\":{\"_id\":\"1f5ba41a-b2a5-4df2-bb0b-a05067b0a964\",\"siteId\":\"a25a42df-8350-4d54-8f42-3531ce8624c1\",\"orgId\":\"72c35cd1-dcb3-43c2-8e95-ba4730cf01d2\",\"active\":true,\"additionalCharges\":[],\"autoEmailReceipt\":true,\"createdByStaffId\":null,\"createdTime\":\"2025-07-05T04:00:58.765Z\",\"currencyId\":\"NZD\",\"customers\":[{\"id\":null,\"firstName\":\"hone\",\"lastName\":\"komarkowski-simpson\",\"email\":\"johnk@iamdigital.co.nz\",\"phone\":\"+64273490059\",\"customerGroupIds\":[]}],\"deliveryInfo\":null,\"discounts\":[],\"docDate\":\"07/05/2025, 4:00 PM\",\"estimatedDeliveryTime\":null,\"estimatedReadyTime\":\"\",\"evicted\":false,\"externalTips\":0,\"finalPriceExTax\":991,\"finalPriceIncTax\":1140,\"fulfilmentStatus\":\"CONFIRMED\",\"integrationData\":null,\"lineIds\":[\"04bd3c31-d1aa-422e-b2ba-7fddc2a851f4\"],\"lineTotalBeforeDiscount\":1140,\"linkedOrderId\":null,\"noteCodes\":[],\"notes\":\"\",\"numGuests\":null,\"orderNumber\":\"005868\",\"orderTypeCode\":\"ONLINE_COLLECTION\",\"originalOrderId\":null,\"ownerId\":null,\"paidTime\":null,\"paymentIds\":[],\"paymentStatus\":\"UNPAID\",\"pricesIncludeTax\":true,\"printStatus\":\"NOTPRINTED\",\"promoCodes\":[],\"promotionSchedulingOverride\":{},\"refundReasons\":[],\"registerId\":null,\"requestedReadyTime\":\"2025-07-05T04:00:58.684Z\",\"status\":\"SENT\",\"tabName\":null,\"tableNumber\":null,\"taxAggregationMethod\":\"PER_TAX\",\"taxByCode\":{\"767adc91-35bb-4417-b8ad-3b0a40b42fc3\":149},\"taxRoundingMethod\":\"HALF_UP\",\"totalBeforeDiscount\":1140,\"totalTips\":0,\"transactionIds\":[],\"updatedByStaffId\":null,\"updatedBySystem\":\"online-ordering-remix-api\",\"updatedTime\":\"2025-07-05T04:01:03.935Z\",\"voidReason\":null,\"orderType\":\"Pickup\",\"docId\":\"1f5ba41a-b2a5-4df2-bb0b-a05067b0a964\",\"docNumber\":\"005868\",\"total\":\"11.40\",\"totalExTax\":\"9.91\",\"tax\":\"1.49\",\"tip\":\"\",\"discount\":\"\",\"discountPercent\":\"\",\"docNotes\":\"\",\"subtotal\":\"9.91\",\"mainProducts\":[{\"categories\":[{\"category\":{\"_id\":\"4be2a400-cbec-47bc-bb9b-6c9b79f76398\",\"createdTime\":\"2025-05-19T10:17:02.412Z\",\"updatedTime\":\"2025-05-19T10:17:02.412Z\",\"updatedBySystem\":\"dnero-api\",\"integrationData\":null,\"orgId\":\"72c35cd1-dcb3-43c2-8e95-ba4730cf01d2\",\"siteId\":\"a25a42df-8350-4d54-8f42-3531ce8624c1\",\"active\":true,\"name\":\"Burgers\",\"code\":\"4f72b9a4-af7d-4e1a-9ef5-ec4cfb32d96e\",\"defaultCourseCode\":null,\"defaultPrinterLocationIds\":[],\"order\":0,\"tagCodes\":[],\"colour\":null,\"defaultSalesAccountCode\":\"DEFAULT_SALES\",\"defaultPurchaseAccountCode\":\"DEFAULT_PURCHASE\",\"defaultReportGroupCode\":null,\"products\":[{\"productId\":\"3016c4e2-bc51-4bd8-a05d-07c8d4717a2f\",\"productName\":\"Easy cheesy burger\",\"printName\":\"Easy cheesy burger\",\"id\":\"9f68f66a-2bd3-4098-b619-ed356737a002\",\"category\":{\"_id\":\"4be2a400-cbec-47bc-bb9b-6c9b79f76398\",\"createdTime\":\"2025-05-19T10:17:02.412Z\",\"updatedTime\":\"2025-05-19T10:17:02.412Z\",\"updatedBySystem\":\"dnero-api\",\"integrationData\":null,\"orgId\":\"72c35cd1-dcb3-43c2-8e95-ba4730cf01d2\",\"siteId\":\"a25a42df-8350-4d54-8f42-3531ce8624c1\",\"active\":true,\"name\":\"Burgers\",\"code\":\"4f72b9a4-af7d-4e1a-9ef5-ec4cfb32d96e\",\"defaultCourseCode\":null,\"defaultPrinterLocationIds\":[],\"order\":0,\"tagCodes\":[],\"colour\":null,\"defaultSalesAccountCode\":\"DEFAULT_SALES\",\"defaultPurchaseAccountCode\":\"DEFAULT_PURCHASE\",\"defaultReportGroupCode\":null},\"hide\":false,\"qty\":\"1\",\"unitQty\":1,\"unitPrice\":1140,\"price\":\"$11.40\",\"sum\":\"$11.40\",\"symbol\":\"x\",\"fontStyle\":\"b\",\"fontSize\":\"wide-high\",\"subtotal\":\"\",\"tax\":\"\",\"groupOrder\":1,\"position\":1,\"level\":0,\"notes\":null,\"rootOrLeaf\":true,\"headerName\":\"\",\"footerName\":\"\",\"discount\":\"\",\"fontFamily\":\"a\",\"fontColor\":\"color_1\",\"textAlign\":\"left\",\"currencySymbol\":\"$\"}]}}]}],\"otherProducts\":[]},\"printerName\":\"passkitchen\",\"dateOfPrinting\":\"07/05/2025, 4:01 PM\",\"timeOfPrinting\":\"4:01 PM\",\"appVersion\":\"\"}",
+  "templateVersion": "",
+  "updatedBySystem": "ios-pos",
+  "updatedTime": {
+    "$date": 1751688068.167902
+  }
+}

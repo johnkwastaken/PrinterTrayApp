@@ -1,0 +1,8 @@
+{
+  "_id": { "id": "parse-test-1" },
+  "template": {
+    "body": "<root><text>{{message}}</text><blank lines=\"1\" /><text>Printer: {{printerName}}</text></root>"
+  },
+  "templateData": "{\"message\":\"Hello World - templateData is a string!\",\"printerName\":\"test-printer\"}",
+  "isOpenCashDrawer": false
+}

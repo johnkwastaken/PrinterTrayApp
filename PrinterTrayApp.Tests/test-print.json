@@ -1,0 +1,18 @@
+{
+  "_id": {
+    "id": "test-001",
+    "siteId": "site-001"
+  },
+  "template": {
+    "body": "<root charset=\"utf-8\"><text align=\"center\" size=\"wide\">TEST RECEIPT</text><separator char=\"=\" /><text>Date: {{dateOfPrinting}}</text><blank lines=\"1\" /><text>Test Item</text><text>Price: $9.99</text><separator char=\"-\" /><text size=\"wide\" font-style=\"b\">Total: $9.99</text><blank lines=\"2\" /><text align=\"center\">Thank you!</text><blank lines=\"3\" /><command cmd=\"cut\" /></root>",
+    "name": "TestReceipt",
+    "templateType": "Receipt"
+  },
+  "templateData": "{}",
+  "printerDeviceName": "Microsoft Print to PDF",
+  "isOpenCashDrawer": false,
+  "retryCount": 0,
+  "printerName": "Test Printer",
+  "evicted": false,
+  "active": true
+}
