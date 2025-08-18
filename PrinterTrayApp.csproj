@@ -23,6 +23,9 @@
     <Compile Remove="PrinterTrayApp.Tests\**" />
     <EmbeddedResource Remove="PrinterTrayApp.Tests\**" />
     <None Remove="PrinterTrayApp.Tests\**" />
+    <Compile Remove="Tests\**" />
+    <EmbeddedResource Remove="Tests\**" />
+    <None Remove="Tests\**" />
   </ItemGroup>
 
 </Project>

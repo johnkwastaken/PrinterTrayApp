@@ -264,10 +264,19 @@ public static class PrintDirect
                         var jobId = Marshal.ReadInt32(offset, 0);
                         var status = Marshal.ReadInt32(offset, 52);
                         
+                        // Get document name from JOB_INFO_1 structure (offset 16 for pDocumentName pointer)
+                        var documentNamePtr = Marshal.ReadIntPtr(offset, 16);
+                        string? documentName = null;
+                        if (documentNamePtr != IntPtr.Zero)
+                        {
+                            documentName = Marshal.PtrToStringUni(documentNamePtr);
+                        }
+                        
                         jobs[i] = new PrintJobInfo
                         {
                             JobId = jobId,
-                            Status = (JobStatus)status
+                            Status = (JobStatus)status,
+                            DocumentName = documentName
                         };
                         
                         offset = IntPtr.Add(offset, 64);
@@ -296,6 +305,7 @@ public static class PrintDirect
     {
         public int JobId { get; set; }
         public JobStatus Status { get; set; }
+        public string? DocumentName { get; set; }
     }
     
     [Flags]

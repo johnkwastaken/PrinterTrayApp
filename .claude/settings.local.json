@@ -50,7 +50,13 @@
       "Bash(dotnet clean:*)",
       "Bash(rm:*)",
       "Bash(timeout:*)",
-      "Bash(true)"
+      "Bash(true)",
+      "Bash(git commit:*)",
+      "Bash(dotnet new:*)",
+      "Bash(dotnet add package:*)",
+      "Bash(dotnet add package Moq)",
+      "Bash(dotnet add:*)",
+      "Bash(git add:*)"
     ],
     "deny": [],
     "ask": [],

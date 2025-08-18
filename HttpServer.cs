@@ -102,11 +102,38 @@ public class HttpServer
             {
                 ConsoleWindow.WriteLine($"GET /health from {context.Connection.RemoteIpAddress}");
                 
-                var response = new HealthResponse
+                // Get detailed printer information
+                var allPrinters = _printerService.GetAllPrinters();
+                
+                // Determine if any printers have issues
+                var hasPrinterIssues = allPrinters.Any(p => 
+                    !p.IsOnline || 
+                    p.HasError ||
+                    p.IsPaused ||
+                    p.Status.Contains("Error", StringComparison.OrdinalIgnoreCase) ||
+                    p.Status.Contains("Paper", StringComparison.OrdinalIgnoreCase) ||
+                    p.Status.Contains("Offline", StringComparison.OrdinalIgnoreCase));
+                
+                // Create enhanced response
+                var response = new EnhancedHealthResponse
                 {
                     Ok = true,
                     Version = Constants.ApiVersion,
-                    Printers = _printerService.GetPrinterNames(), 
+                    HasPrinterIssues = hasPrinterIssues,
+                    Printers = allPrinters.Select(p => new PrinterHealthStatus
+                    {
+                        Name = p.WindowsPrinterName,
+                        IsOnline = p.IsOnline,
+                        Status = p.Status,
+                        JobCount = (int)p.JobCount
+                    }).ToList(),
+                    Summary = new PrinterHealthSummary
+                    {
+                        TotalPrinters = allPrinters.Count,
+                        OnlinePrinters = allPrinters.Count(p => p.IsOnline),
+                        OfflinePrinters = allPrinters.Count(p => !p.IsOnline),
+                        PrintersWithJobs = allPrinters.Count(p => p.JobCount > 0)
+                    },
                     UptimeSeconds = (long)(DateTime.UtcNow - _startTime).TotalSeconds
                 };
 
@@ -259,21 +286,47 @@ public class HttpServer
                 ConsoleWindow.WriteLine($"GET /printers from {context.Connection.RemoteIpAddress}");
                 
                 var printers = _printerService.GetAllPrinters();
+                
+                // Check for printer issues
+                var hasPrinterIssues = printers.Any(p => 
+                    !p.IsOnline || 
+                    p.HasError ||
+                    p.IsPaused ||
+                    p.Status.Contains("Error", StringComparison.OrdinalIgnoreCase) ||
+                    p.Status.Contains("Paper", StringComparison.OrdinalIgnoreCase) ||
+                    p.Status.Contains("Offline", StringComparison.OrdinalIgnoreCase));
+                
                 var response = new
                 {
+                    totalPrinters = printers.Count,
+                    hasPrinterIssues = hasPrinterIssues,
                     printers = printers.Select(p => new
                     {
-                        logicalName = p.LogicalName,
-                        windowsPrinterName = p.WindowsPrinterName,
-                        compositeId = p.UniqueId,  // Name@Port composite ID
-                        status = p.Status,
-                        isOnline = p.IsOnline,
+                        name = p.WindowsPrinterName,
+                        displayName = p.LogicalName,
                         isDefault = p.IsDefault,
+                        isOnline = p.IsOnline,
+                        status = p.Status,
+                        statusFlags = 0,  // Can be enhanced later with actual Windows status flags
                         port = p.PortName,
                         portType = p.PortType.ToString(),
+                        driver = p.DriverName,
+                        location = "",  // Can be enhanced with printer location from Windows
+                        comment = "",   // Can be enhanced with printer comment from Windows
+                        jobCount = p.JobCount,
                         supportsRaw = p.SupportsRawPrinting,
-                        jobCount = p.JobCount
-                    })
+                        supportedPaperSizes = new[] { "80mm", "58mm" },  // Can be enhanced later
+                        isShared = false,  // Can be enhanced with sharing status
+                        shareName = (string?)null
+                    }),
+                    summary = new
+                    {
+                        total = printers.Count,
+                        online = printers.Count(p => p.IsOnline),
+                        offline = printers.Count(p => !p.IsOnline),
+                        withJobs = printers.Count(p => p.JobCount > 0),
+                        rawCapable = printers.Count(p => p.SupportsRawPrinting)
+                    }
                 };
                 
                 context.Response.ContentType = "application/json";
@@ -287,12 +340,463 @@ public class HttpServer
             }
         });
 
+        _app.MapGet("/status", async (HttpContext context) =>
+        {
+            try
+            {
+                ConsoleWindow.WriteLine($"GET /status from {context.Connection.RemoteIpAddress}");
+                
+                // Get all printers
+                var allPrinters = _printerService.GetPrinterNames();
+                var allJobs = new List<JobStatusInfo>();
+                
+                // Aggregate jobs from all printers
+                foreach (var printerName in allPrinters)
+                {
+                    try
+                    {
+                        var printerJobs = PrintDirect.GetPrinterJobs(printerName);
+                        
+                        foreach (var job in printerJobs)
+                        {
+                            allJobs.Add(new JobStatusInfo
+                            {
+                                Guid = job.DocumentName,
+                                SpoolerId = job.JobId,
+                                PrinterName = printerName,
+                                Status = job.Status.ToString().ToLowerInvariant(),
+                                IsError = job.Status.HasFlag(PrintDirect.JobStatus.Error) ||
+                                         job.Status.HasFlag(PrintDirect.JobStatus.PaperOut) ||
+                                         job.Status.HasFlag(PrintDirect.JobStatus.Blocked) ||
+                                         job.Status.HasFlag(PrintDirect.JobStatus.UserIntervention),
+                                IsPrinting = job.Status.HasFlag(PrintDirect.JobStatus.Printing),
+                                IsComplete = job.Status.HasFlag(PrintDirect.JobStatus.Complete) || 
+                                            job.Status.HasFlag(PrintDirect.JobStatus.Printed) ||
+                                            job.Status.HasFlag(PrintDirect.JobStatus.Deleted)
+                            });
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        ConsoleWindow.WriteError($"Failed to get jobs for printer {printerName}: {ex.Message}");
+                        // Continue with other printers
+                    }
+                }
+                
+                var response = new StatusResponse
+                {
+                    TotalJobs = allJobs.Count,
+                    Jobs = allJobs
+                };
+
+                context.Response.ContentType = "application/json";
+                await context.Response.WriteAsync(JsonSerializer.Serialize(response, _jsonOptions));
+            }
+            catch (Exception ex)
+            {
+                ConsoleWindow.WriteError($"Error in /status endpoint: {ex.Message}");
+                context.Response.StatusCode = 500;
+                await context.Response.WriteAsync(JsonSerializer.Serialize(new { error = ex.Message }, _jsonOptions));
+            }
+        });
+
+        _app.MapGet("/status/guid/{guid}", async (HttpContext context) =>
+        {
+            try
+            {
+                ConsoleWindow.WriteLine($"GET /status/guid/{{guid}} from {context.Connection.RemoteIpAddress}");
+                
+                // Extract GUID from route parameter
+                var guid = context.Request.RouteValues["guid"]?.ToString();
+                
+                if (string.IsNullOrWhiteSpace(guid))
+                {
+                    context.Response.StatusCode = 400;
+                    context.Response.ContentType = "application/json";
+                    await context.Response.WriteAsync(JsonSerializer.Serialize(new { error = "GUID parameter is required" }, _jsonOptions));
+                    return;
+                }
+                
+                ConsoleWindow.WriteLine($"Searching for GUID: {guid}");
+                
+                // Search all printers for the GUID
+                var allPrinters = _printerService.GetPrinterNames();
+                GuidStatusResponse? result = null;
+                
+                foreach (var printerName in allPrinters)
+                {
+                    try
+                    {
+                        var printerJobs = PrintDirect.GetPrinterJobs(printerName);
+                        
+                        // Search for job with matching GUID (case-insensitive)
+                        var foundJob = printerJobs.FirstOrDefault(j => 
+                            j.DocumentName?.Equals(guid, StringComparison.OrdinalIgnoreCase) == true);
+                        
+                        if (foundJob != null)
+                        {
+                            // Create response for found job
+                            result = new GuidStatusResponse
+                            {
+                                Guid = guid,
+                                SpoolerId = foundJob.JobId,
+                                Found = true,
+                                PrinterName = printerName,
+                                Status = foundJob.Status.ToString().ToLowerInvariant(),
+                                IsError = foundJob.Status.HasFlag(PrintDirect.JobStatus.Error) ||
+                                         foundJob.Status.HasFlag(PrintDirect.JobStatus.PaperOut) ||
+                                         foundJob.Status.HasFlag(PrintDirect.JobStatus.Blocked) ||
+                                         foundJob.Status.HasFlag(PrintDirect.JobStatus.UserIntervention),
+                                IsPrinting = foundJob.Status.HasFlag(PrintDirect.JobStatus.Printing),
+                                IsPaused = foundJob.Status.HasFlag(PrintDirect.JobStatus.Paused),
+                                IsComplete = foundJob.Status.HasFlag(PrintDirect.JobStatus.Complete) ||
+                                            foundJob.Status.HasFlag(PrintDirect.JobStatus.Printed) ||
+                                            foundJob.Status.HasFlag(PrintDirect.JobStatus.Deleted)
+                            };
+                            
+                            ConsoleWindow.WriteLine($"Found GUID {guid} on printer {printerName}, spooler ID: {foundJob.JobId}, status: {foundJob.Status}");
+                            break;
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        ConsoleWindow.WriteError($"Failed to get jobs for printer {printerName}: {ex.Message}");
+                        // Continue searching other printers
+                    }
+                }
+                
+                // If not found, create not found response
+                if (result == null)
+                {
+                    result = new GuidStatusResponse
+                    {
+                        Guid = guid,
+                        Found = false
+                    };
+                    
+                    ConsoleWindow.WriteLine($"GUID {guid} not found in any printer queue");
+                }
+
+                context.Response.ContentType = "application/json";
+                await context.Response.WriteAsync(JsonSerializer.Serialize(result, _jsonOptions));
+            }
+            catch (Exception ex)
+            {
+                ConsoleWindow.WriteError($"Error in /status/guid/{{guid}} endpoint: {ex.Message}");
+                context.Response.StatusCode = 500;
+                await context.Response.WriteAsync(JsonSerializer.Serialize(new { error = ex.Message }, _jsonOptions));
+            }
+        });
+
+        _app.MapGet("/status/spooler/{id}", async (HttpContext context) =>
+        {
+            try
+            {
+                ConsoleWindow.WriteLine($"GET /status/spooler/{{id}} from {context.Connection.RemoteIpAddress}");
+                
+                // Extract spooler ID from route parameter
+                var spoolerIdString = context.Request.RouteValues["id"]?.ToString();
+                
+                if (string.IsNullOrWhiteSpace(spoolerIdString))
+                {
+                    context.Response.StatusCode = 400;
+                    context.Response.ContentType = "application/json";
+                    await context.Response.WriteAsync(JsonSerializer.Serialize(new { error = "Spooler ID parameter is required" }, _jsonOptions));
+                    return;
+                }
+                
+                // Parse spooler ID as integer
+                if (!int.TryParse(spoolerIdString, out var spoolerId) || spoolerId <= 0)
+                {
+                    context.Response.StatusCode = 400;
+                    context.Response.ContentType = "application/json";
+                    await context.Response.WriteAsync(JsonSerializer.Serialize(new { error = "Spooler ID must be a positive integer" }, _jsonOptions));
+                    return;
+                }
+                
+                ConsoleWindow.WriteLine($"Searching for spooler ID: {spoolerId}");
+                
+                // Search all printers for the spooler ID
+                var allPrinters = _printerService.GetPrinterNames();
+                SpoolerStatusResponse? result = null;
+                
+                foreach (var printerName in allPrinters)
+                {
+                    try
+                    {
+                        var printerJobs = PrintDirect.GetPrinterJobs(printerName);
+                        
+                        // Search for job with matching spooler ID
+                        var foundJob = printerJobs.FirstOrDefault(j => j.JobId == spoolerId);
+                        
+                        if (foundJob != null)
+                        {
+                            // Create response for found job
+                            result = new SpoolerStatusResponse
+                            {
+                                SpoolerId = spoolerId,
+                                Guid = foundJob.DocumentName,
+                                Found = true,
+                                PrinterName = printerName,
+                                Status = foundJob.Status.ToString().ToLowerInvariant(),
+                                IsError = foundJob.Status.HasFlag(PrintDirect.JobStatus.Error) ||
+                                         foundJob.Status.HasFlag(PrintDirect.JobStatus.PaperOut) ||
+                                         foundJob.Status.HasFlag(PrintDirect.JobStatus.Blocked) ||
+                                         foundJob.Status.HasFlag(PrintDirect.JobStatus.UserIntervention),
+                                IsPrinting = foundJob.Status.HasFlag(PrintDirect.JobStatus.Printing),
+                                IsPaused = foundJob.Status.HasFlag(PrintDirect.JobStatus.Paused),
+                                IsComplete = foundJob.Status.HasFlag(PrintDirect.JobStatus.Complete) ||
+                                            foundJob.Status.HasFlag(PrintDirect.JobStatus.Printed) ||
+                                            foundJob.Status.HasFlag(PrintDirect.JobStatus.Deleted)
+                            };
+                            
+                            ConsoleWindow.WriteLine($"Found spooler ID {spoolerId} on printer {printerName}, GUID: {foundJob.DocumentName}, status: {foundJob.Status}");
+                            break;
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        ConsoleWindow.WriteError($"Failed to get jobs for printer {printerName}: {ex.Message}");
+                        // Continue searching other printers
+                    }
+                }
+                
+                // If not found, create not found response
+                if (result == null)
+                {
+                    result = new SpoolerStatusResponse
+                    {
+                        SpoolerId = spoolerId,
+                        Found = false
+                    };
+                    
+                    ConsoleWindow.WriteLine($"Spooler ID {spoolerId} not found in any printer queue");
+                }
+
+                context.Response.ContentType = "application/json";
+                await context.Response.WriteAsync(JsonSerializer.Serialize(result, _jsonOptions));
+            }
+            catch (Exception ex)
+            {
+                ConsoleWindow.WriteError($"Error in /status/spooler/{{id}} endpoint: {ex.Message}");
+                context.Response.StatusCode = 500;
+                await context.Response.WriteAsync(JsonSerializer.Serialize(new { error = ex.Message }, _jsonOptions));
+            }
+        });
+
+        _app.MapGet("/check-queue", async (HttpContext context) =>
+        {
+            try
+            {
+                ConsoleWindow.WriteLine($"GET /check-queue from {context.Connection.RemoteIpAddress}");
+                
+                // Get all printers
+                var allPrinters = _printerService.GetPrinterNames();
+                var allJobs = new List<QueueJobInfo>();
+                
+                // Aggregate jobs from all printers with detailed analysis
+                foreach (var printerName in allPrinters)
+                {
+                    try
+                    {
+                        var printerJobs = PrintDirect.GetPrinterJobs(printerName);
+                        var position = 1;
+                        
+                        foreach (var job in printerJobs)
+                        {
+                            var currentTime = DateTime.UtcNow;
+                            var submittedAt = currentTime.AddSeconds(-60); // Approximate submission time (Windows doesn't track this)
+                            var ageSeconds = (long)(currentTime - submittedAt).TotalSeconds;
+                            
+                            var queueJob = new QueueJobInfo
+                            {
+                                Guid = job.DocumentName,
+                                SpoolerId = job.JobId,
+                                PrinterName = printerName,
+                                Status = job.Status.ToString().ToLowerInvariant(),
+                                ErrorMessage = GetErrorMessage(job.Status),
+                                DocumentName = job.DocumentName,
+                                Position = position++,
+                                PagesPrinted = 0, // Windows doesn't easily provide this info
+                                TotalPages = 1, // Default assumption
+                                SubmittedAt = submittedAt,
+                                AgeSeconds = ageSeconds,
+                                AgeFormatted = FormatAge(ageSeconds),
+                                IsStuck = IsJobStuck(job.Status, ageSeconds),
+                                IsError = IsErrorState(job.Status)
+                            };
+                            
+                            allJobs.Add(queueJob);
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        ConsoleWindow.WriteError($"Failed to get jobs for printer {printerName}: {ex.Message}");
+                        // Continue with other printers
+                    }
+                }
+                
+                // Sort jobs by printer name and position
+                allJobs = allJobs.OrderBy(j => j.PrinterName).ThenBy(j => j.Position).ToList();
+                
+                // Calculate summary statistics
+                var summary = new QueueSummary
+                {
+                    Total = allJobs.Count,
+                    Printing = allJobs.Count(j => j.Status.Equals("printing", StringComparison.OrdinalIgnoreCase)),
+                    Queued = allJobs.Count(j => j.Status.Equals("none", StringComparison.OrdinalIgnoreCase)),
+                    Spooling = allJobs.Count(j => j.Status.Equals("spooling", StringComparison.OrdinalIgnoreCase)),
+                    Paused = allJobs.Count(j => j.Status.Equals("paused", StringComparison.OrdinalIgnoreCase)),
+                    Error = allJobs.Count(j => j.IsError),
+                    StuckCount = allJobs.Count(j => j.IsStuck)
+                };
+                
+                if (allJobs.Any())
+                {
+                    summary.OldestJobAge = allJobs.Max(j => j.AgeSeconds);
+                    summary.OldestJobAgeFormatted = FormatAge(summary.OldestJobAge);
+                }
+                
+                var response = new QueueCheckResponse
+                {
+                    TotalJobs = allJobs.Count,
+                    HasErrors = allJobs.Any(j => j.IsError),
+                    HasStuckJobs = allJobs.Any(j => j.IsStuck),
+                    Jobs = allJobs,
+                    Summary = summary
+                };
+
+                ConsoleWindow.WriteLine($"Queue check completed: {allJobs.Count} total jobs, {summary.Error} errors, {summary.StuckCount} stuck");
+
+                context.Response.ContentType = "application/json";
+                await context.Response.WriteAsync(JsonSerializer.Serialize(response, _jsonOptions));
+            }
+            catch (Exception ex)
+            {
+                ConsoleWindow.WriteError($"Error in /check-queue endpoint: {ex.Message}");
+                context.Response.StatusCode = 500;
+                await context.Response.WriteAsync(JsonSerializer.Serialize(new { error = ex.Message }, _jsonOptions));
+            }
+        });
+
+        _app.MapPost("/retry-queue", async (HttpContext context) =>
+        {
+            try
+            {
+                // Read and parse request
+                var requestBody = await new StreamReader(context.Request.Body).ReadToEndAsync();
+                var request = JsonSerializer.Deserialize<RetryQueueRequest>(requestBody, _jsonOptions);
+                
+                if (request == null || string.IsNullOrWhiteSpace(request.PrinterName))
+                {
+                    context.Response.StatusCode = 400;
+                    var errorResponse = new RetryQueueResponse
+                    {
+                        Success = false,
+                        RetriedCount = 0,
+                        RetriedJobs = new List<RetriedJobInfo>(),
+                        ErrorMessage = "Printer name is required"
+                    };
+                    await context.Response.WriteAsync(JsonSerializer.Serialize(errorResponse, _jsonOptions));
+                    return;
+                }
+
+                // Get jobs for the specified printer
+                var printerJobs = PrintDirect.GetPrinterJobs(request.PrinterName);
+                
+                if (printerJobs.Length == 0)
+                {
+                    // Check if printer exists by trying to get all printers
+                    var availablePrinters = _printerService.GetAllPrinters();
+                    if (!availablePrinters.Any(p => p.WindowsPrinterName.Equals(request.PrinterName, StringComparison.OrdinalIgnoreCase)))
+                    {
+                        context.Response.StatusCode = 404;
+                        var notFoundResponse = new RetryQueueResponse
+                        {
+                            Success = false,
+                            RetriedCount = 0,
+                            RetriedJobs = new List<RetriedJobInfo>(),
+                            ErrorMessage = $"Printer '{request.PrinterName}' not found"
+                        };
+                        await context.Response.WriteAsync(JsonSerializer.Serialize(notFoundResponse, _jsonOptions));
+                        return;
+                    }
+                }
+
+                // Find retriable jobs (paused, error, blocked, user intervention)
+                var retriableJobs = printerJobs.Where(job => 
+                    job.Status.HasFlag(PrintDirect.JobStatus.Paused) ||
+                    job.Status.HasFlag(PrintDirect.JobStatus.Error) ||
+                    job.Status.HasFlag(PrintDirect.JobStatus.Blocked) ||
+                    job.Status.HasFlag(PrintDirect.JobStatus.UserIntervention)
+                ).ToList();
+
+                var retriedJobs = new List<RetriedJobInfo>();
+                var failureCount = 0;
+                
+                foreach (var job in retriableJobs)
+                {
+                    try
+                    {
+                        // Try to resume the job
+                        PrintDirect.SendJobCommand(request.PrinterName, job.JobId, PrintDirect.JobCommand.JOB_CONTROL_RESUME);
+                        
+                        // Get updated job status after retry
+                        var updatedJobs = PrintDirect.GetPrinterJobs(request.PrinterName);
+                        var updatedJob = updatedJobs.FirstOrDefault(j => j.JobId == job.JobId);
+                        
+                        retriedJobs.Add(new RetriedJobInfo
+                        {
+                            Guid = ExtractGuidFromDocumentName(job.DocumentName),
+                            SpoolerId = job.JobId,
+                            Status = updatedJob?.Status.ToString().ToLowerInvariant() ?? "unknown",
+                            ErrorMessage = null
+                        });
+                    }
+                    catch (Exception ex)
+                    {
+                        failureCount++;
+                        retriedJobs.Add(new RetriedJobInfo
+                        {
+                            Guid = ExtractGuidFromDocumentName(job.DocumentName),
+                            SpoolerId = job.JobId,
+                            Status = "failed",
+                            ErrorMessage = $"Failed to retry: {ex.Message}"
+                        });
+                    }
+                }
+
+                var response = new RetryQueueResponse
+                {
+                    Success = true,
+                    RetriedCount = retriableJobs.Count,
+                    RetriedJobs = retriedJobs,
+                    ErrorMessage = failureCount > 0 ? $"{failureCount} job(s) failed to retry" : null
+                };
+
+                await context.Response.WriteAsync(JsonSerializer.Serialize(response, _jsonOptions));
+            }
+            catch (Exception ex)
+            {
+                ConsoleWindow.WriteError($"Error in retry queue endpoint: {ex.Message}");
+                context.Response.StatusCode = 500;
+                var errorResponse = new RetryQueueResponse
+                {
+                    Success = false,
+                    RetriedCount = 0,
+                    RetriedJobs = new List<RetriedJobInfo>(),
+                    ErrorMessage = $"Internal server error: {ex.Message}"
+                };
+                await context.Response.WriteAsync(JsonSerializer.Serialize(errorResponse, _jsonOptions));
+            }
+        });
+
         _app.MapGet("/", async (HttpContext context) =>
         {
             try
             {
                 context.Response.ContentType = "text/plain";
-                await context.Response.WriteAsync("Printer Tray App API v0.1.0\n\nAvailable endpoints:\n- GET /health\n- GET /printers\n- POST /print\n- GET /self-test");
+                await context.Response.WriteAsync("Printer Tray App API v0.1.0\n\nAvailable endpoints:\n- GET /health\n- GET /printers\n- POST /print\n- GET /status\n- GET /status/guid/{guid}\n- GET /status/spooler/{id}\n- GET /check-queue\n- POST /retry-queue\n- GET /self-test");
             }
             catch (Exception ex)
             {
@@ -347,6 +851,13 @@ public class HttpServer
         
         try
         {
+            // STEP 0: Extract GUID from PrinterTask
+            var guid = task._id?.id ?? $"job-{DateTime.Now:yyyyMMddHHmmss}";
+            result.Guid = guid;
+            result.DocumentName = guid;
+            
+            ConsoleWindow.WriteLine($"Processing PrinterTask for job {jobNumber}, GUID: {guid}");
+            
             // STEP 1: Validate template exists
             if (task.template == null || string.IsNullOrEmpty(task.template.body))
             {
@@ -525,6 +1036,72 @@ public class HttpServer
                 }
             }
             
+            result.PrinterName = printerName;
+            
+            // ============================================================
+            // DUPLICATE PREVENTION: Check if GUID already exists in spooler
+            // ============================================================
+            ConsoleWindow.WriteLine($"Checking for duplicate GUID: {guid}");
+            try
+            {
+                var existingJobs = PrintDirect.GetPrinterJobs(printerName);
+                var duplicateJob = existingJobs.FirstOrDefault(j => 
+                    j.DocumentName?.Equals(guid, StringComparison.OrdinalIgnoreCase) == true);
+                
+                if (duplicateJob != null)
+                {
+                    ConsoleWindow.WriteLine($"Duplicate GUID detected! Job {duplicateJob.JobId} already exists with GUID: {guid}");
+                    result.Success = false;
+                    result.Error = $"Duplicate print job detected. GUID '{guid}' already exists in spooler.";
+                    result.SpoolerJobId = duplicateJob.JobId;
+                    return result;
+                }
+            }
+            catch (Exception ex)
+            {
+                ConsoleWindow.WriteError($"Warning: Could not check for duplicates: {ex.Message}");
+                // Continue with printing - duplicate check is optional safety feature
+            }
+            
+            // ============================================================
+            // QUEUE MONITORING: Check for errors and printer issues
+            // ============================================================
+            try
+            {
+                // Check current printer's queue for errors
+                var currentJobs = PrintDirect.GetPrinterJobs(printerName);
+                result.HasErrors = currentJobs.Any(j => 
+                    j.Status.HasFlag(PrintDirect.JobStatus.Error) ||
+                    j.Status.HasFlag(PrintDirect.JobStatus.PaperOut) ||
+                    j.Status.HasFlag(PrintDirect.JobStatus.Blocked) ||
+                    j.Status.HasFlag(PrintDirect.JobStatus.UserIntervention));
+                
+                // Check all printers for issues
+                var allPrinters = _printerService.GetAllPrinters();
+                result.HasPrinterIssues = allPrinters.Any(p => 
+                    !p.IsOnline || 
+                    p.HasError ||
+                    p.IsPaused ||
+                    p.Status.Contains("Error", StringComparison.OrdinalIgnoreCase) ||
+                    p.Status.Contains("Paper", StringComparison.OrdinalIgnoreCase) ||
+                    p.Status.Contains("Offline", StringComparison.OrdinalIgnoreCase));
+                
+                if (result.HasErrors)
+                {
+                    ConsoleWindow.WriteLine($"Warning: Printer {printerName} has errored jobs in queue");
+                }
+                
+                if (result.HasPrinterIssues)
+                {
+                    ConsoleWindow.WriteLine($"Warning: Some printers have issues");
+                }
+            }
+            catch (Exception ex)
+            {
+                ConsoleWindow.WriteError($"Warning: Could not check queue status: {ex.Message}");
+                // Continue with printing - queue monitoring is optional
+            }
+            
             // ============================================================
             // Retry Logic with Cash Drawer Safety
             // ============================================================
@@ -544,7 +1121,7 @@ public class HttpServer
                 {
                     var spoolJobId = PrintDirect.Print(
                         printerName,
-                        $"PrintJob-{jobNumber}",
+                        guid,  // Use GUID as document name for tracking
                         "RAW",
                         commands
                     );
@@ -609,9 +1186,74 @@ public class HttpServer
     {
         public bool Success { get; set; }
         public string JobNumber { get; set; } = "";
+        public string? Guid { get; set; }
         public int? SpoolerJobId { get; set; }
+        public string? PrinterName { get; set; }
+        public string? DocumentName { get; set; }
         public string? Status { get; set; }
         public string? Error { get; set; }
         public int RetryCount { get; set; }
+        public bool HasErrors { get; set; }
+        public bool HasPrinterIssues { get; set; }
+    }
+    
+    private static string FormatAge(long ageSeconds)
+    {
+        if (ageSeconds < 60)
+        {
+            return ageSeconds == 1 ? "1 second" : $"{ageSeconds} seconds";
+        }
+        else if (ageSeconds < 3600)
+        {
+            var minutes = ageSeconds / 60;
+            return minutes == 1 ? "1 minute" : $"{minutes} minutes";
+        }
+        else if (ageSeconds < 86400)
+        {
+            var hours = ageSeconds / 3600;
+            return hours == 1 ? "1 hour" : $"{hours} hours";
+        }
+        else
+        {
+            var days = ageSeconds / 86400;
+            return days == 1 ? "1 day" : $"{days} days";
+        }
+    }
+    
+    private static bool IsJobStuck(PrintDirect.JobStatus status, long ageSeconds)
+    {
+        // Job is stuck if it's been printing/spooling for more than 30 seconds
+        return (status == PrintDirect.JobStatus.Printing || status == PrintDirect.JobStatus.Spooling) 
+               && ageSeconds > 30;
+    }
+    
+    private static bool IsErrorState(PrintDirect.JobStatus status)
+    {
+        return status.HasFlag(PrintDirect.JobStatus.Error) ||
+               status.HasFlag(PrintDirect.JobStatus.PaperOut) ||
+               status.HasFlag(PrintDirect.JobStatus.Blocked) ||
+               status.HasFlag(PrintDirect.JobStatus.UserIntervention);
+    }
+    
+    private static string? GetErrorMessage(PrintDirect.JobStatus status)
+    {
+        if (status.HasFlag(PrintDirect.JobStatus.PaperOut))
+            return "Paper out";
+        else if (status.HasFlag(PrintDirect.JobStatus.Error))
+            return "Printer error";
+        else if (status.HasFlag(PrintDirect.JobStatus.Blocked))
+            return "Print job blocked";
+        else if (status.HasFlag(PrintDirect.JobStatus.UserIntervention))
+            return "User intervention required";
+        else if (status.HasFlag(PrintDirect.JobStatus.Offline))
+            return "Printer offline";
+        
+        return null;
+    }
+    
+    private static string? ExtractGuidFromDocumentName(string? documentName)
+    {
+        // Document name should be the GUID from PrinterTask._id.id
+        return string.IsNullOrWhiteSpace(documentName) ? null : documentName;
     }
 }
