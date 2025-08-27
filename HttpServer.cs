@@ -899,7 +899,7 @@ public class HttpServer
             // The template uses {{path.to.value}} tokens to reference this data
 
             // ============================================================
-            // STEP 1: Parse templateData (JSON string from POS)
+            // STEP 2a: Parse templateData (JSON string from POS)
             // ============================================================
             // The POS sends templateData as a JSON STRING, not an object
             // It contains template rendering data:
@@ -926,20 +926,6 @@ public class HttpServer
             }
 
             // ============================================================
-            // STEP 2: Data Structure Validation
-            // ============================================================
-            // IMPORTANT: We do NOT use JsonCleaner on templateData anymore
-            // The POS sends pre-flattened products with level properties:
-            // - level 0: Main products
-            // - level 1: Modifiers (indented 2 spaces)
-            // - level 2+: Sub-modifiers (indented 2 spaces per level)
-            // Circular references exist but are handled via the level system
-            DebugLogger.Log($"[POS-FIX] Keeping POS data structure intact - not using JsonCleaner");
-
-            // processedTemplateData is already the string we need
-            DebugLogger.Log($"[POS-FIX] Template data ready for processing");
-
-            // ============================================================
             // STEP 3: Render XML Template with Data
             // ============================================================
             // The template contains XML with {{tokens}} placeholders
@@ -957,28 +943,14 @@ public class HttpServer
             XmlDocument xmlDoc;
             try
             {
-                DebugLogger.Log($"[HttpServer] Calling SimpleTemplateProcessor...");
-
-                // Use simple processor for now to debug
-                bool useSimpleProcessor = false;
-
-                if (useSimpleProcessor && task.template.body.Contains("docket-section"))
-                {
-                    DebugLogger.Log($"[HttpServer] Using SimpleTemplateProcessor for docket");
-                    xmlDoc = SimpleTemplateProcessor.RenderTemplateSimple(
-                        task.template.body,
-                        processedTemplateData
-                    );
-                }
-                else
-                {
-                    DebugLogger.Log($"[HttpServer] Using TemplateHelpers.RenderTemplate");
-                    xmlDoc = TemplateHelpers.RenderTemplate(
-                        task.template.body,        // XML template with {{tokens}} and print commands
-                        processedTemplateData,     // JSON string with all the data
-                        PrinterPaperWidth.Paper_80 // Standard 80mm thermal printer width
-                    );
-                }
+                // TODO: Ask John - RenderTemplateSimple exists but wasn't used (useSimpleProcessor=false)
+                // Should we keep SimpleTemplateProcessor or remove it entirely?
+                DebugLogger.Log($"[HttpServer] Using TemplateHelpers.RenderTemplate");
+                xmlDoc = TemplateHelpers.RenderTemplate(
+                    task.template.body,        // XML template with {{tokens}} and print commands
+                    processedTemplateData,     // JSON string with all the data
+                    PrinterPaperWidth.Paper_80 // Standard 80mm thermal printer width
+                );
 
                 DebugLogger.Log($"[HttpServer] Template rendered successfully");
 
