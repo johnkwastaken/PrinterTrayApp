@@ -1,6 +1,6 @@
-using System.Runtime.InteropServices;
 using PrinterTrayApp.Interop;
 using PrinterTrayApp.Models;
+using System.Runtime.InteropServices;
 
 namespace PrinterTrayApp.Services;
 
@@ -77,20 +77,20 @@ public class PrinterService
     public void RefreshPrinters(bool logToConsole = false)
     {
         _cachedPrinters.Clear();
-        
+
         try
         {
             // Enumerate both local (USB/parallel) and network printers
-            var flags = WinSpoolInterop.PrinterEnumFlags.PRINTER_ENUM_LOCAL | 
+            var flags = WinSpoolInterop.PrinterEnumFlags.PRINTER_ENUM_LOCAL |
                        WinSpoolInterop.PrinterEnumFlags.PRINTER_ENUM_CONNECTIONS;
-            
+
             uint cbNeeded = 0;   // Bytes needed for printer data
             uint cReturned = 0;  // Number of printers found
-            
+
             // First call: Get required buffer size
             // Pass null buffer to determine how much memory we need
             WinSpoolInterop.EnumPrinters(flags, null, 2, IntPtr.Zero, 0, ref cbNeeded, ref cReturned);
-            
+
             if (cbNeeded > 0)
             {
                 // Allocate unmanaged memory for printer data
@@ -102,23 +102,23 @@ public class PrinterService
                         // Parse the returned data - it's an array of PRINTER_INFO_2 structures
                         IntPtr currentPrinter = safeHandle.DangerousGetHandle();
                         int sizeOfStruct = Marshal.SizeOf(typeof(WinSpoolInterop.PRINTER_INFO_2));
-                        
+
                         // Process each printer in the array
                         for (int i = 0; i < cReturned; i++)
                         {
                             // Marshal the native structure to managed code
                             var printerInfo = Marshal.PtrToStructure<WinSpoolInterop.PRINTER_INFO_2>(currentPrinter);
-                            
+
                             // Skip printers that are being removed from the system
                             if ((printerInfo.Status & WinSpoolInterop.PRINTER_STATUS_PENDING_DELETION) != 0)
                             {
                                 currentPrinter = IntPtr.Add(currentPrinter, sizeOfStruct);
                                 continue;
                             }
-                            
+
                             // Decode printer status from Windows status flags
                             var statusInfo = GetPrinterStatus(printerInfo.Status, printerInfo.Attributes);
-                            
+
                             // Filter out virtual/document printers
                             // These don't support RAW printing needed for ESC/POS
                             var printerName = printerInfo.pPrinterName ?? "";
@@ -131,7 +131,7 @@ public class PrinterService
                                 currentPrinter = IntPtr.Add(currentPrinter, sizeOfStruct);
                                 continue;
                             }
-                            
+
                             // Create PrinterInfo object with all relevant details
                             var printer = new PrinterInfo
                             {
@@ -146,21 +146,21 @@ public class PrinterService
                                 JobCount = printerInfo.cJobs,  // Pending print jobs
                                 IsDefault = (printerInfo.Attributes & WinSpoolInterop.PRINTER_ATTRIBUTE_DEFAULT) != 0
                             };
-                            
+
                             _cachedPrinters.Add(printer);
                             currentPrinter = IntPtr.Add(currentPrinter, sizeOfStruct);
                         }
                     }
                 }
             }
-            
+
             _lastRefresh = DateTime.Now;
-            
+
             // Only log if explicitly requested (initial load or manual refresh)
             if (logToConsole)
             {
                 ConsoleWindow.WriteLine($"Discovered {_cachedPrinters.Count} printer(s)");
-                
+
                 foreach (var printer in _cachedPrinters)
                 {
                     ConsoleWindow.WriteLine($"  - {printer.WindowsPrinterName} [{printer.Status}]");
@@ -235,11 +235,11 @@ public class PrinterService
         // Check work offline attribute first - user manually set printer offline
         if ((attributes & WinSpoolInterop.PRINTER_ATTRIBUTE_WORK_OFFLINE) != 0)
             return new PrinterStatusInfo { IsOnline = false, DisplayText = "Work Offline", Severity = StatusSeverity.Error };
-        
+
         // Status 0 means ready - no issues
         if (status == 0)
             return new PrinterStatusInfo { IsOnline = true, DisplayText = "Ready", Severity = StatusSeverity.Ready };
-        
+
         // Check status flags in priority order
         // Report most severe issue first (e.g., "Paper Out" over "Busy")
         foreach (var severity in new[] { StatusSeverity.Error, StatusSeverity.Warning, StatusSeverity.Active, StatusSeverity.Ready })
@@ -250,7 +250,7 @@ public class PrinterService
                     return kvp.Value;
             }
         }
-        
+
         // Default to ready if no specific status matched
         return new PrinterStatusInfo { IsOnline = true, DisplayText = "Ready", Severity = StatusSeverity.Ready };
     }
@@ -262,14 +262,14 @@ public class PrinterService
     private void LoadMappings()
     {
         var configPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "printers.json");
-        
+
         if (File.Exists(configPath))
         {
             try
             {
                 var json = File.ReadAllText(configPath);
                 var config = System.Text.Json.JsonSerializer.Deserialize<PrinterConfiguration>(json);
-                
+
                 if (config?.Mappings != null)
                 {
                     _printerMappings.Clear();
@@ -280,7 +280,7 @@ public class PrinterService
                             _printerMappings[mapping.LogicalName] = mapping.WindowsPrinterName;
                         }
                     }
-                    
+
                     ConsoleWindow.WriteLine($"Loaded {_printerMappings.Count} printer mapping(s) from config");
                 }
             }
@@ -297,7 +297,7 @@ public class PrinterService
     /// </summary>
     public PrinterInfo? ResolvePrinter(string logicalName)
     {
-        return _cachedPrinters.FirstOrDefault(p => 
+        return _cachedPrinters.FirstOrDefault(p =>
             p.LogicalName.Equals(logicalName, StringComparison.OrdinalIgnoreCase));
     }
 
@@ -309,7 +309,7 @@ public class PrinterService
     {
         return _cachedPrinters.Select(p => p.WindowsPrinterName).ToList();
     }
-    
+
     /// <summary>
     /// Checks if a printer exists by Windows name or logical name
     /// Auto-refreshes cache if expired to detect newly added printers
@@ -321,9 +321,9 @@ public class PrinterService
         {
             RefreshPrinters();
         }
-        
+
         // Check both Windows name and logical name
-        return _cachedPrinters.Any(p => 
+        return _cachedPrinters.Any(p =>
             p.WindowsPrinterName.Equals(printerName, StringComparison.OrdinalIgnoreCase) ||
             p.LogicalName.Equals(printerName, StringComparison.OrdinalIgnoreCase));
     }

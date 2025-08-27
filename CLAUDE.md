@@ -107,13 +107,12 @@ Returns detailed printer information
 Accepts PrinterTask JSON from POS system
 
 ⚠️ **CRITICAL: Following POS Architecture**
-The app uses ONLY these fields from PrinterTask:
+The app uses these fields from PrinterTask:
 - `template.body` - XML template string
-- `templateData` - JSON string containing ALL data (including printer name)
+- `templateData` - JSON string containing template data
+- `printerDeviceName` / `printerName` - Printer name from request body
 - `isOpenCashDrawer` - Boolean for cash drawer
 - `_id.id` - Only for logging
-
-**ALL OTHER FIELDS ARE IGNORED!** Root-level fields like `printerDeviceName` are deprecated.
 
 ```json
 {
@@ -123,7 +122,8 @@ The app uses ONLY these fields from PrinterTask:
     "name": "Receipt",
     "templateType": "Docket"
   },
-  "templateData": "{\"printerDeviceName\":\"passkitchen\",\"sites\":{...},\"orders\":{...}}",
+  "templateData": "{\"sites\":{...},\"orders\":{...}}",
+  "printerDeviceName": "passkitchen",
   "isOpenCashDrawer": false
 }
 ```
@@ -138,16 +138,18 @@ public class PrinterTask {
     public string templateData { get; set; }       // Contains EVERYTHING
     public bool isOpenCashDrawer { get; set; }     // Cash drawer control
     
-    // IGNORED FIELDS (for compatibility only):
+    // PRINTER SELECTION FIELDS:
+    public string printerDeviceName { get; set; }  // Used for printer selection (priority 1)
+    public string printerName { get; set; }        // Used for printer selection (priority 2)
+    
+    // OTHER FIELDS (for compatibility only):
     public ObjectId _id { get; set; }              // Only .id for logging
-    public string printerDeviceName { get; set; }  // DEPRECATED - use templateData
-    public string printerName { get; set; }        // DEPRECATED - use templateData
     // ... all other fields are ignored
 }
 ```
 
 ### templateData Structure:
-ALL data must be in templateData as JSON:
+Template rendering data is in templateData as JSON:
 ```json
 {
   // REQUIRED: Printer specification

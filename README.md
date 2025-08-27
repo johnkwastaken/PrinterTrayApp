@@ -75,12 +75,13 @@ PrinterTrayApp/
 ### Data Flow
 
 1. **Receive Request** → POS system sends PrinterTask JSON to `/print` endpoint
-2. **Extract Data** → Extract templateData JSON string from request
-3. **Clean Data** → Remove MongoDB types ($date, $oid) from JSON
-4. **Render Template** → Process XML template with token replacement
-5. **Generate Commands** → Convert XML to ESC/POS command strings
-6. **Send to Printer** → Use Windows spooler to send RAW commands
-7. **Return Status** → Send job ID and status back to POS
+2. **Extract Printer** → Get printer name from request body fields (`printerDeviceName`/`printerName`)
+3. **Extract Data** → Extract templateData JSON string from request
+4. **Clean Data** → Remove MongoDB types ($date, $oid) from JSON
+5. **Render Template** → Process XML template with token replacement
+6. **Generate Commands** → Convert XML to ESC/POS command strings
+7. **Send to Printer** → Use Windows spooler to send RAW commands
+8. **Return Status** → Send job ID and status back to POS
 
 ## 📦 Prerequisites
 
