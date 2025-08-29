@@ -874,14 +874,14 @@ public class HttpServer
         try
         {
             // STEP 0: Extract GUID from PrinterTask
-            var guid = task._id?.id ?? $"job-{DateTime.Now:yyyyMMddHHmmss}";
+            var guid = task._id?.Id ?? $"job-{DateTime.Now:yyyyMMddHHmmss}";
             result.Guid = guid;
             result.DocumentName = guid;
 
             ConsoleWindow.WriteLine($"Processing PrinterTask for job {jobNumber}, GUID: {guid}");
 
             // STEP 1: Validate template exists
-            if (task.template == null || string.IsNullOrEmpty(task.template.body))
+            if (task.Template == null || string.IsNullOrEmpty(task.Template.Body))
             {
                 throw new Exception("Template is missing or empty");
             }
@@ -907,7 +907,7 @@ public class HttpServer
             // - orders: Order details with products
             // - staff, registers, currencies: Context data
             // - dateOfPrinting, header, footer: Print metadata
-            string processedTemplateData = task.templateData ?? "{}";
+            string processedTemplateData = task.TemplateData ?? "{}";
 
             // Log the type and content we received for debugging
             DebugLogger.Log($"[POS-FIX] templateData is string: {!string.IsNullOrEmpty(processedTemplateData)}");
@@ -938,7 +938,7 @@ public class HttpServer
             //   {{sites.name}} -> "Palmerston North"
             //   {{orders.docNumber}} -> "005868"
             //   <docket-section /> -> Full product list with categories
-            DebugLogger.Log($"[HttpServer] About to render template: {task.template.name}");
+            DebugLogger.Log($"[HttpServer] About to render template: {task.Template.Name}");
 
             XmlDocument xmlDoc;
             try
@@ -947,7 +947,7 @@ public class HttpServer
                 // Should we keep SimpleTemplateProcessor or remove it entirely?
                 DebugLogger.Log($"[HttpServer] Using TemplateHelpers.RenderTemplate");
                 xmlDoc = TemplateHelpers.RenderTemplate(
-                    task.template.body,        // XML template with {{tokens}} and print commands
+                    task.Template.Body,        // XML template with {{tokens}} and print commands
                     processedTemplateData,     // JSON string with all the data
                     PrinterPaperWidth.Paper_80 // Standard 80mm thermal printer width
                 );
@@ -980,7 +980,7 @@ public class HttpServer
             // Add cash drawer opening command if requested
             // Most thermal printers have a cash drawer port (DK port)
             // This sends an electrical pulse to trigger the drawer solenoid
-            if (task.isOpenCashDrawer)
+            if (task.IsOpenCashDrawer)
             {
                 ConsoleWindow.WriteLine("Adding cash drawer command");
                 commandBuilder.OpenCashDrawer(PrinterPulse.Duration_100);  // 100ms pulse
@@ -1074,7 +1074,7 @@ public class HttpServer
             // - Cash drawer prints: Limited to 3 retries
             // This prevents the cash drawer from opening multiple times
             // if there's a communication issue
-            var maxRetries = task.isOpenCashDrawer ? 3 : 5;
+            var maxRetries = task.IsOpenCashDrawer ? 3 : 5;
             var retryCount = 0;
             Exception? lastError = null;
 
@@ -1127,7 +1127,7 @@ public class HttpServer
             result.Error = lastError?.Message ?? "Unknown error";
             result.RetryCount = retryCount;
 
-            if (task.isOpenCashDrawer && retryCount >= 3)
+            if (task.IsOpenCashDrawer && retryCount >= 3)
             {
                 ConsoleWindow.WriteError("Cash drawer job failed after 3 attempts - aborting to prevent drawer issues");
                 result.Error += " - Cash drawer safety limit reached";
@@ -1217,16 +1217,16 @@ public class HttpServer
 
     private static string? GetTargetPrinterName(PrinterTask printerTask)
     {
-        if (!string.IsNullOrWhiteSpace(printerTask.printerDeviceName))
+        if (!string.IsNullOrWhiteSpace(printerTask.PrinterDeviceName))
         {
-            ConsoleWindow.WriteLine($"Using printerDeviceName: {printerTask.printerDeviceName}");
-            return printerTask.printerDeviceName;
+            ConsoleWindow.WriteLine($"Using printerDeviceName: {printerTask.PrinterDeviceName}");
+            return printerTask.PrinterDeviceName;
         }
 
-        if (!string.IsNullOrWhiteSpace(printerTask.printerName))
+        if (!string.IsNullOrWhiteSpace(printerTask.PrinterName))
         {
-            ConsoleWindow.WriteLine($"Using printerName: {printerTask.printerName}");
-            return printerTask.printerName;
+            ConsoleWindow.WriteLine($"Using printerName: {printerTask.PrinterName}");
+            return printerTask.PrinterName;
         }
 
         return null; // No printer specified
@@ -1234,7 +1234,7 @@ public class HttpServer
 
     private static string? ExtractGuidFromDocumentName(string? documentName)
     {
-        // Document name should be the GUID from PrinterTask._id.id
+        // Document name should be the GUID from PrinterTask._id.Id
         return string.IsNullOrWhiteSpace(documentName) ? null : documentName;
     }
 }

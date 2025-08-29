@@ -1,69 +1,66 @@
-using System;
-using System.Collections.Generic;
-
 namespace PrinterTrayApp.Models;
 
 public class PrinterTask
 {
     public ObjectId? _id { get; set; }
-    public bool evicted { get; set; }
-    public bool active { get; set; }
-    public TargetDevice? targetDevice { get; set; }
-    public TargetDevice? sourceDevice { get; set; }
-    public ReceiptTemplate? template { get; set; }
-    public string templateData { get; set; } = string.Empty;
-    public string? currentPrinterId { get; set; }
-    public string printerName { get; set; } = string.Empty;
-    public string printerDeviceName { get; set; } = string.Empty;
-    public List<string>? secondPrinterIds { get; set; }
-    public bool isOpenCashDrawer { get; set; }
-    public bool isComplete { get; set; }
-    public bool inProgress { get; set; }
-    public int retryCount { get; set; }
-    public bool isSuspend { get; set; }
-    public string? ipAddress { get; set; }
-    public string? appVersion { get; set; }
-    public string? templateVersion { get; set; }
-    public string? error { get; set; }
-    public string? jobId { get; set; }
-    public string? name { get; set; }
-    public string? registerName { get; set; }
-    public PrinterLocationInfo? printerLocation { get; set; }
+    public bool Evicted { get; set; }
+    public bool Active { get; set; }
+    public TargetDevice? TargetDevice { get; set; }
+    public TargetDevice? SourceDevice { get; set; }
+    public ReceiptTemplate? Template { get; set; }
+    public string TemplateData { get; set; } = string.Empty;
+    public string? CurrentPrinterId { get; set; }
+    public string PrinterName { get; set; } = string.Empty;
+    public string PrinterDeviceName { get; set; } = string.Empty;
+    public List<string>? SecondPrinterIds { get; set; }
+    public bool IsOpenCashDrawer { get; set; }
+    public bool IsComplete { get; set; }
+    public bool InProgress { get; set; }
+    public int RetryCount { get; set; }
+    public bool IsSuspend { get; set; }
+    public string? IpAddress { get; set; }
+    public string? AppVersion { get; set; }
+    public string? TemplateVersion { get; set; }
+    public string? Error { get; set; }
+    public string? JobId { get; set; }
+    public string? Name { get; set; }
+    public string? RegisterName { get; set; }
+    public PrinterLocationInfo? PrinterLocation { get; set; }
 }
 
 public class ObjectId
 {
-    public string id { get; set; } = Guid.NewGuid().ToString();
-    public string siteId { get; set; } = "";
-    public string? orgId { get; set; }
+    public string Id { get; set; } = Guid.NewGuid().ToString();
+    public string SiteId { get; set; } = "";
+    public string? OrgId { get; set; }
 }
 
 public class TargetDevice
 {
-    public string name { get; set; } = string.Empty;
-    public string deviceId { get; set; } = string.Empty;
+    public string Name { get; set; } = string.Empty;
+    public string DeviceId { get; set; } = string.Empty;
 }
 
 public class ReceiptTemplate
 {
-    public string body { get; set; } = string.Empty;
-    public string name { get; set; } = string.Empty;
-    public string templateType { get; set; } = "Receipt";
+    public string Body { get; set; } = string.Empty;
+    public string Name { get; set; } = string.Empty;
+    public string TemplateType { get; set; } = "Receipt";
 }
 
 public class PrinterLocationInfo
 {
     public ObjectId? _id { get; set; }
-    public bool active { get; set; }
-    public DateTime? createdTime { get; set; }
-    public bool evicted { get; set; }
-    public string? name { get; set; }
-    public string? printerGroupId { get; set; }
-    public List<string>? printerIds { get; set; }
-    public string? secondLocationId { get; set; }
-    public string? updatedByDeviceId { get; set; }
-    public string? updatedBySystem { get; set; }
-    public DateTime? updatedTime { get; set; }
+    public bool Active { get; set; }
+    public DateTime? CreatedTime { get; set; }
+    public bool Evicted { get; set; }
+    public string? Name { get; set; }
+    public string? PrinterGroupId { get; set; }
+    public List<string>? PrinterIds { get; set; }
+    public string? SecondLocationId { get; set; }
+    public string? UpdatedByDeviceId { get; set; }
+    public string? UpdatedBySystem { get; set; }
+    public DateTime? UpdatedTime { get; set; }
 }
 
 public enum TemplateType
