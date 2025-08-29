@@ -253,9 +253,9 @@ public class PrintTestForm : Form
                 {
                     UpdateStatus("✓ Print job sent successfully!", Color.Green);
                     
-                    if (responseObj.TryGetProperty("jobNumber", out var jobNumber))
+                    if (responseObj.TryGetProperty("guid", out var guid))
                     {
-                        _responseOutput.AppendText($"\r\n\r\n✓ SUCCESS - Job Number: {jobNumber}");
+                        _responseOutput.AppendText($"\r\n\r\n✓ SUCCESS - GUID: {guid}");
                     }
                 }
                 else

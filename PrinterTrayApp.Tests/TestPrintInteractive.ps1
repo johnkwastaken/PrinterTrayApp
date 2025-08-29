@@ -93,7 +93,7 @@ while ($true) {
         
         if ($response.success) {
             Write-Host "✓ SUCCESS!" -ForegroundColor Green
-            Write-Host "  Job Number: $($response.jobNumber)" -ForegroundColor White
+            Write-Host "  GUID: $($response.guid)" -ForegroundColor White
             Write-Host "  Spooler ID: $($response.spoolerJobId)" -ForegroundColor White
             if ($response.retryCount -gt 0) {
                 Write-Host "  Retries: $($response.retryCount)" -ForegroundColor Yellow

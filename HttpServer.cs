@@ -220,9 +220,7 @@ public class HttpServer
                     return;
                 }
 
-                // Generate unique job number for tracking (format: PRT-YYYYMMDD-######)
-                var jobNumber = GenerateJobNumber();
-                ConsoleWindow.WriteLine($"Processing print job: {jobNumber}");
+                ConsoleWindow.WriteLine("Processing print job...");
 
                 // Get available printers from Windows
                 // Currently using first available printer - routing logic can be added later
@@ -234,8 +232,7 @@ public class HttpServer
                     context.Response.ContentType = "application/json";
                     await context.Response.WriteAsync(JsonSerializer.Serialize(new
                     {
-                        error = "No printers available",
-                        jobNumber = jobNumber
+                        error = "No printers available"
                     }, _jsonOptions));
                     return;
                 }
@@ -268,7 +265,7 @@ public class HttpServer
 
                 // Process the print task through the full pipeline
                 // This is where the magic happens - template rendering, command generation, printing
-                var result = await ProcessPrintTask(printerTask, jobNumber, targetPrinter);
+                var result = await ProcessPrintTask(printerTask, targetPrinter);
 
                 context.Response.ContentType = "application/json";
                 context.Response.StatusCode = result.Success ? 200 : 500;
@@ -842,13 +839,6 @@ public class HttpServer
         }
     }
 
-    private string GenerateJobNumber()
-    {
-        var date = DateTime.Now.ToString("yyyyMMdd");
-        var random = new Random();
-        var sequence = random.Next(100000, 999999);
-        return $"PRT-{date}-{sequence:D6}";
-    }
 
     /// <summary>
     /// Main print task processing pipeline - receives PrinterTask from POS and sends to printer
@@ -864,12 +854,11 @@ public class HttpServer
     /// Flow: JSON Data -> Clean MongoDB Types -> Apply POS Rules -> Render Template -> Generate Commands -> Send to Printer
     /// </summary>
     /// <param name="task">PrinterTask containing template and templateData for rendering</param>
-    /// <param name="jobNumber">Unique job number for tracking (PRT-YYYYMMDD-######)</param>
     /// <param name="printerName">Name of the printer to use (already validated)</param>
     /// <returns>PrintResult with success status and any error messages</returns>
-    private async Task<PrintResult> ProcessPrintTask(PrinterTask task, string jobNumber, string printerName)
+    private async Task<PrintResult> ProcessPrintTask(PrinterTask task, string printerName)
     {
-        var result = new PrintResult { JobNumber = jobNumber };
+        var result = new PrintResult();
 
         try
         {
@@ -878,7 +867,7 @@ public class HttpServer
             result.Guid = guid;
             result.DocumentName = guid;
 
-            ConsoleWindow.WriteLine($"Processing PrinterTask for job {jobNumber}, GUID: {guid}");
+            ConsoleWindow.WriteLine($"Processing PrinterTask with GUID: {guid}");
 
             // STEP 1: Validate template exists
             if (task.Template == null || string.IsNullOrEmpty(task.Template.Body))
@@ -886,7 +875,7 @@ public class HttpServer
                 throw new Exception("Template is missing or empty");
             }
 
-            ConsoleWindow.WriteLine($"Processing PrinterTask for job {jobNumber}...");
+            ConsoleWindow.WriteLine($"Processing PrinterTask with GUID: {guid}...");
 
             // STEP 2: Process the templateData field
             // IMPORTANT: templateData contains template rendering data - JSON string with:
@@ -1149,7 +1138,6 @@ public class HttpServer
     private class PrintResult
     {
         public bool Success { get; set; }
-        public string JobNumber { get; set; } = "";
         public string? Guid { get; set; }
         public int? SpoolerJobId { get; set; }
         public string? PrinterName { get; set; }

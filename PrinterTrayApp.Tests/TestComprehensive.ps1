@@ -38,8 +38,8 @@ function Test-Endpoint {
         if ($response.printers) {
             Write-Host "   Printers: $($response.printers -join ', ')" -ForegroundColor Gray
         }
-        if ($response.jobNumber) {
-            Write-Host "   Job: $($response.jobNumber)" -ForegroundColor Gray
+        if ($response.guid) {
+            Write-Host "   GUID: $($response.guid)" -ForegroundColor Gray
         }
         
         return @{

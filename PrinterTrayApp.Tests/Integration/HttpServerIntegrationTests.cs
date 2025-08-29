@@ -219,12 +219,12 @@ public class HttpServerIntegrationTests : IAsyncLifetime
 
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.OK);
-        responseContent.Should().Contain("jobNumber");
+        responseContent.Should().Contain("guid");
         responseContent.Should().Contain("success");
         
         var result = JsonDocument.Parse(responseContent);
         result.RootElement.GetProperty("success").GetBoolean().Should().BeTrue();
-        result.RootElement.GetProperty("jobNumber").GetString().Should().StartWith("PRT-");
+        result.RootElement.GetProperty("guid").GetString().Should().NotBeNullOrEmpty();
     }
 
     [Fact]
@@ -368,11 +368,11 @@ public class HttpServerIntegrationTests : IAsyncLifetime
         var result1 = JsonDocument.Parse(content1Result);
         var result2 = JsonDocument.Parse(content2Result);
         
-        var jobNumber1 = result1.RootElement.GetProperty("jobNumber").GetString();
-        var jobNumber2 = result2.RootElement.GetProperty("jobNumber").GetString();
+        var guid1 = result1.RootElement.GetProperty("guid").GetString();
+        var guid2 = result2.RootElement.GetProperty("guid").GetString();
         
-        jobNumber1.Should().NotBe(jobNumber2);
-        jobNumber1.Should().MatchRegex(@"^PRT-\d{8}-\d{6}$");
-        jobNumber2.Should().MatchRegex(@"^PRT-\d{8}-\d{6}$");
+        guid1.Should().NotBe(guid2);
+        guid1.Should().NotBeNullOrEmpty();
+        guid2.Should().NotBeNullOrEmpty();
     }
 }
