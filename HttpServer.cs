@@ -95,57 +95,7 @@ public class HttpServer
 
         _app.UseRouting();
 
-        _app.MapGet("/health", async (HttpContext context) =>
-        {
-            try
-            {
-                ConsoleWindow.WriteLine($"GET /health from {context.Connection.RemoteIpAddress}");
-
-                // Get detailed printer information
-                var allPrinters = _printerService.GetAllPrinters();
-
-                // Determine if any printers have issues
-                var hasPrinterIssues = allPrinters.Any(p =>
-                    !p.IsOnline ||
-                    p.HasError ||
-                    p.IsPaused ||
-                    p.Status.Contains("Error", StringComparison.OrdinalIgnoreCase) ||
-                    p.Status.Contains("Paper", StringComparison.OrdinalIgnoreCase) ||
-                    p.Status.Contains("Offline", StringComparison.OrdinalIgnoreCase));
-
-                // Create enhanced response
-                var response = new EnhancedHealthResponse
-                {
-                    Ok = true,
-                    Version = Constants.ApiVersion,
-                    HasPrinterIssues = hasPrinterIssues,
-                    Printers = allPrinters.Select(p => new PrinterHealthStatus
-                    {
-                        Name = p.WindowsPrinterName,
-                        IsOnline = p.IsOnline,
-                        Status = p.Status,
-                        JobCount = (int)p.JobCount
-                    }).ToList(),
-                    Summary = new PrinterHealthSummary
-                    {
-                        TotalPrinters = allPrinters.Count,
-                        OnlinePrinters = allPrinters.Count(p => p.IsOnline),
-                        OfflinePrinters = allPrinters.Count(p => !p.IsOnline),
-                        PrintersWithJobs = allPrinters.Count(p => p.JobCount > 0)
-                    },
-                    UptimeSeconds = (long)(DateTime.UtcNow - _startTime).TotalSeconds
-                };
-
-                context.Response.ContentType = "application/json";
-                await context.Response.WriteAsync(JsonSerializer.Serialize(response, _jsonOptions));
-            }
-            catch (Exception ex)
-            {
-                ConsoleWindow.WriteError($"Error in /health endpoint: {ex.Message}");
-                context.Response.StatusCode = 500;
-                await context.Response.WriteAsync(JsonSerializer.Serialize(new { error = ex.Message }, _jsonOptions));
-            }
-        });
+        _app.MapGet("/health", HandleHealthRequest);
 
         _app.MapPost("/print", async (HttpContext context) =>
         {
@@ -298,66 +248,7 @@ public class HttpServer
             }
         });
 
-        _app.MapGet("/printers", async (HttpContext context) =>
-        {
-            try
-            {
-                ConsoleWindow.WriteLine($"GET /printers from {context.Connection.RemoteIpAddress}");
-
-                var printers = _printerService.GetAllPrinters();
-
-                // Check for printer issues
-                var hasPrinterIssues = printers.Any(p =>
-                    !p.IsOnline ||
-                    p.HasError ||
-                    p.IsPaused ||
-                    p.Status.Contains("Error", StringComparison.OrdinalIgnoreCase) ||
-                    p.Status.Contains("Paper", StringComparison.OrdinalIgnoreCase) ||
-                    p.Status.Contains("Offline", StringComparison.OrdinalIgnoreCase));
-
-                var response = new
-                {
-                    totalPrinters = printers.Count,
-                    hasPrinterIssues = hasPrinterIssues,
-                    printers = printers.Select(p => new
-                    {
-                        name = p.WindowsPrinterName,
-                        displayName = p.LogicalName,
-                        isDefault = p.IsDefault,
-                        isOnline = p.IsOnline,
-                        status = p.Status,
-                        statusFlags = 0,  // Can be enhanced later with actual Windows status flags
-                        port = p.PortName,
-                        portType = p.PortType.ToString(),
-                        driver = p.DriverName,
-                        location = "",  // Can be enhanced with printer location from Windows
-                        comment = "",   // Can be enhanced with printer comment from Windows
-                        jobCount = p.JobCount,
-                        supportsRaw = p.SupportsRawPrinting,
-                        supportedPaperSizes = new[] { "80mm", "58mm" },  // Can be enhanced later
-                        isShared = false,  // Can be enhanced with sharing status
-                        shareName = (string?)null
-                    }),
-                    summary = new
-                    {
-                        total = printers.Count,
-                        online = printers.Count(p => p.IsOnline),
-                        offline = printers.Count(p => !p.IsOnline),
-                        withJobs = printers.Count(p => p.JobCount > 0),
-                        rawCapable = printers.Count(p => p.SupportsRawPrinting)
-                    }
-                };
-
-                context.Response.ContentType = "application/json";
-                await context.Response.WriteAsync(JsonSerializer.Serialize(response, _jsonOptions));
-            }
-            catch (Exception ex)
-            {
-                ConsoleWindow.WriteError($"Error in /printers endpoint: {ex.Message}");
-                context.Response.StatusCode = 500;
-                await context.Response.WriteAsync(JsonSerializer.Serialize(new { error = ex.Message }, _jsonOptions));
-            }
-        });
+        _app.MapGet("/printers", HandlePrintersRequest);
 
         _app.MapGet("/status", async (HttpContext context) =>
         {
@@ -1224,5 +1115,129 @@ public class HttpServer
     {
         // Document name should be the GUID from PrinterTask._id.Id
         return string.IsNullOrWhiteSpace(documentName) ? null : documentName;
+    }
+
+    private async Task HandleHealthRequest(HttpContext context)
+    {
+        try
+        {
+            ConsoleWindow.WriteLine($"GET /health from {context.Connection.RemoteIpAddress}");
+
+            var allPrinters = _printerService.GetAllPrinters();
+            var hasPrinterIssues = HasPrinterIssues(allPrinters);
+            var response = CreateHealthResponse(allPrinters, hasPrinterIssues);
+
+            context.Response.ContentType = "application/json";
+            await context.Response.WriteAsync(JsonSerializer.Serialize(response, _jsonOptions));
+        }
+        catch (Exception ex)
+        {
+            ConsoleWindow.WriteError($"Error in /health endpoint: {ex.Message}");
+            context.Response.StatusCode = 500;
+            await context.Response.WriteAsync(JsonSerializer.Serialize(new { error = ex.Message }, _jsonOptions));
+        }
+    }
+
+    private async Task HandlePrintersRequest(HttpContext context)
+    {
+        try
+        {
+            ConsoleWindow.WriteLine($"GET /printers from {context.Connection.RemoteIpAddress}");
+
+            var printers = _printerService.GetAllPrinters();
+            var hasPrinterIssues = HasPrinterIssues(printers);
+            var response = CreatePrintersResponse(printers, hasPrinterIssues);
+
+            context.Response.ContentType = "application/json";
+            await context.Response.WriteAsync(JsonSerializer.Serialize(response, _jsonOptions));
+        }
+        catch (Exception ex)
+        {
+            ConsoleWindow.WriteError($"Error in /printers endpoint: {ex.Message}");
+            context.Response.StatusCode = 500;
+            await context.Response.WriteAsync(JsonSerializer.Serialize(new { error = ex.Message }, _jsonOptions));
+        }
+    }
+
+    private static bool HasPrinterIssues(IEnumerable<PrinterInfo> printers)
+    {
+        return printers.Any(p =>
+            !p.IsOnline ||
+            p.HasError ||
+            p.IsPaused ||
+            p.Status.Contains("Error", StringComparison.OrdinalIgnoreCase) ||
+            p.Status.Contains("Paper", StringComparison.OrdinalIgnoreCase) ||
+            p.Status.Contains("Offline", StringComparison.OrdinalIgnoreCase));
+    }
+
+    private EnhancedHealthResponse CreateHealthResponse(List<PrinterInfo> printers, bool hasPrinterIssues)
+    {
+        return new EnhancedHealthResponse
+        {
+            Ok = true,
+            Version = Constants.ApiVersion,
+            HasPrinterIssues = hasPrinterIssues,
+            Printers = MapToPrinterHealthStatus(printers),
+            Summary = CreatePrinterSummary(printers),
+            UptimeSeconds = (long)(DateTime.UtcNow - _startTime).TotalSeconds
+        };
+    }
+
+    private static List<PrinterHealthStatus> MapToPrinterHealthStatus(List<PrinterInfo> printers)
+    {
+        return printers.Select(p => new PrinterHealthStatus
+        {
+            Name = p.WindowsPrinterName,
+            IsOnline = p.IsOnline,
+            Status = p.Status,
+            JobCount = (int)p.JobCount
+        }).ToList();
+    }
+
+    private static PrinterHealthSummary CreatePrinterSummary(List<PrinterInfo> printers)
+    {
+        return new PrinterHealthSummary
+        {
+            TotalPrinters = printers.Count,
+            OnlinePrinters = printers.Count(p => p.IsOnline),
+            OfflinePrinters = printers.Count(p => !p.IsOnline),
+            PrintersWithJobs = printers.Count(p => p.JobCount > 0)
+        };
+    }
+
+    private static object CreatePrintersResponse(List<PrinterInfo> printers, bool hasPrinterIssues)
+    {
+        return new
+        {
+            totalPrinters = printers.Count,
+            hasPrinterIssues,
+            printers = printers.Select(p => new
+            {
+                name = p.WindowsPrinterName,
+                displayName = p.LogicalName,
+                isDefault = p.IsDefault,
+                isOnline = p.IsOnline,
+                status = p.Status,
+                statusFlags = 0,
+                port = p.PortName,
+                portType = p.PortType.ToString(),
+                driver = p.DriverName,
+                location = "",
+                comment = "",
+                jobCount = p.JobCount,
+                supportsRaw = p.SupportsRawPrinting,
+                supportedPaperSizes = new[] { "80mm", "58mm" },
+                isShared = false,
+                shareName = (string?)null
+            }),
+            summary = new
+            {
+                total = printers.Count,
+                online = printers.Count(p => p.IsOnline),
+                offline = printers.Count(p => !p.IsOnline),
+                withJobs = printers.Count(p => p.JobCount > 0),
+                rawCapable = printers.Count(p => p.SupportsRawPrinting)
+            }
+        };
     }
 }
