@@ -1026,19 +1026,6 @@ public class HttpServer
         }
     }
 
-    private class PrintResult
-    {
-        public bool Success { get; set; }
-        public string? Guid { get; set; }
-        public int? SpoolerJobId { get; set; }
-        public string? PrinterName { get; set; }
-        public string? DocumentName { get; set; }
-        public string? Status { get; set; }
-        public string? Error { get; set; }
-        public int RetryCount { get; set; }
-        public bool HasErrors { get; set; }
-        public bool HasPrinterIssues { get; set; }
-    }
 
     private static string FormatAge(long ageSeconds)
     {
@@ -1205,38 +1192,38 @@ public class HttpServer
         };
     }
 
-    private static object CreatePrintersResponse(List<PrinterInfo> printers, bool hasPrinterIssues)
+    private static PrintersResponse CreatePrintersResponse(List<PrinterInfo> printers, bool hasPrinterIssues)
     {
-        return new
+        return new PrintersResponse
         {
-            totalPrinters = printers.Count,
-            hasPrinterIssues,
-            printers = printers.Select(p => new
+            TotalPrinters = printers.Count,
+            HasPrinterIssues = hasPrinterIssues,
+            Printers = printers.Select(p => new PrinterDetailDto
             {
-                name = p.WindowsPrinterName,
-                displayName = p.LogicalName,
-                isDefault = p.IsDefault,
-                isOnline = p.IsOnline,
-                status = p.Status,
-                statusFlags = 0,
-                port = p.PortName,
-                portType = p.PortType.ToString(),
-                driver = p.DriverName,
-                location = "",
-                comment = "",
-                jobCount = p.JobCount,
-                supportsRaw = p.SupportsRawPrinting,
-                supportedPaperSizes = new[] { "80mm", "58mm" },
-                isShared = false,
-                shareName = (string?)null
-            }),
-            summary = new
+                Name = p.WindowsPrinterName,
+                DisplayName = p.LogicalName,
+                IsDefault = p.IsDefault,
+                IsOnline = p.IsOnline,
+                Status = p.Status,
+                StatusFlags = 0,
+                Port = p.PortName,
+                PortType = p.PortType.ToString(),
+                Driver = p.DriverName,
+                Location = "",
+                Comment = "",
+                JobCount = p.JobCount,
+                SupportsRaw = p.SupportsRawPrinting,
+                SupportedPaperSizes = new[] { "80mm", "58mm" },
+                IsShared = false,
+                ShareName = null
+            }).ToList(),
+            Summary = new PrintersSummary
             {
-                total = printers.Count,
-                online = printers.Count(p => p.IsOnline),
-                offline = printers.Count(p => !p.IsOnline),
-                withJobs = printers.Count(p => p.JobCount > 0),
-                rawCapable = printers.Count(p => p.SupportsRawPrinting)
+                Total = printers.Count,
+                Online = printers.Count(p => p.IsOnline),
+                Offline = printers.Count(p => !p.IsOnline),
+                WithJobs = printers.Count(p => p.JobCount > 0),
+                RawCapable = printers.Count(p => p.SupportsRawPrinting)
             }
         };
     }
